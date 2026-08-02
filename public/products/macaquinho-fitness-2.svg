@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 960">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f1e8e4"/>
+      <stop offset="1" stop-color="#e2d0cd"/>
+    </linearGradient>
+  </defs>
+  <rect width="720" height="960" fill="url(#g)"/>
+  <rect x="44" y="44" width="632" height="872" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.5"/>
+  <text x="360" y="466" font-size="52" letter-spacing="16" text-anchor="middle"
+    font-family="Georgia, 'Times New Roman', serif" fill="#7a545e" font-weight="500">GATA FIT</text>
+  <text x="360" y="512" font-size="17" letter-spacing="4" text-anchor="middle"
+    font-family="Georgia, 'Times New Roman', serif" fill="#7a545e" opacity="0.65">MACAQUINHO FITNESS</text>
+</svg>

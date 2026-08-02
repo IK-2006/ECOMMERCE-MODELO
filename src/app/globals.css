@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+/* dark mode por classe (toggle manual + preferência do sistema) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Paleta Gata Fit: preto/branco + rosé/mauve empoeirado (premium feminino) */
+  --color-accent: #b07885;
+  --color-accent-strong: #935e6b;
+  --color-accent-soft: #f7edef;
+  --color-accent-soft-dark: #2a1e22;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: var(--font-cormorant), Georgia, "Times New Roman", serif;
+
+  --animate-fade-in: fade-in 0.25s ease-out;
+  --animate-slide-up: slide-up 0.3s ease-out;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+body {
+  @apply bg-white text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
+}
+
+/* scrollbar discreta */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-zinc-300 dark:bg-zinc-700;
+}
+
+/* skeleton loader */
+.skeleton {
+  @apply relative overflow-hidden bg-zinc-100 dark:bg-zinc-800;
+}
+.skeleton::after {
+  content: "";
+  @apply absolute inset-0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: shimmer 1.4s infinite;
+}
+.dark .skeleton::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+}
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+.skeleton::after { transform: translateX(-100%); }
+
+/* -------------------------------------------------------------
+   Tabelas do admin — padding compacto para caberem em telas
+   menores (ex.: painel do Claude aberto ao lado) sem cortar
+   colunas. Regras sem @layer vencem os utilitários `p-4` das
+   células. Continua com overflow-x-auto como fallback.
+   ------------------------------------------------------------- */
+.adm-table th,
+.adm-table td {
+  padding: 0.7rem 0.6rem;
+  vertical-align: middle;
+}
+.adm-table th:first-child,
+.adm-table td:first-child { padding-left: 1rem; }
+.adm-table th:last-child,
+.adm-table td:last-child { padding-right: 1rem; }

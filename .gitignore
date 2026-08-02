@@ -1,0 +1,28 @@
+# dependências
+/node_modules
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+
+# produção
+/build
+
+# banco de dados local (SQLite)
+prisma/dev.db
+prisma/dev.db-journal
+
+# uploads locais (imagens enviadas pelo admin)
+/public/uploads/*
+!/public/uploads/.gitkeep
+
+# variáveis de ambiente — NUNCA commitar credenciais
+.env
+.env*.local
+
+# diversos
+.DS_Store
+*.pem
+npm-debug.log*
+*.tsbuildinfo

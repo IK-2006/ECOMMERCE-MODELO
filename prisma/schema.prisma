@@ -1,0 +1,441 @@
+// =====================================================================
+// SCHEMA DO E-COMMERCE
+// ---------------------------------------------------------------------
+// Dev:      provider = "sqlite"      (funciona sem instalar nada)
+// Produção: provider = "postgresql"  (troque a linha abaixo e o
+//           DATABASE_URL no .env, depois rode `npx prisma migrate dev`)
+//
+// O schema é 100% compatível com os dois bancos:
+//  - valores monetários em centavos (Int) — evita problemas de ponto
+//    flutuante e o tipo Decimal (não suportado no SQLite)
+//  - "enums" como String validadas por Zod (src/lib/validations.ts)
+// =====================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------- Usuários ----------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  passwordHash  String? // null quando o cadastro veio de login social
+  role          String    @default("CUSTOMER") // CUSTOMER | ADMIN
+  image         String?
+  phone         String?
+  cpf           String?
+  emailVerified DateTime?
+
+  // Autenticação de dois fatores (TOTP — app autenticador)
+  twoFactorSecret  String? // segredo base32 (null = não configurado)
+  twoFactorEnabled Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  addresses      Address[]
+  orders         Order[]
+  reviews        Review[]
+  wishlist       WishlistItem[]
+  cart           Cart?
+  resetTokens    PasswordResetToken[]
+  auditLogs      AuditLog[]
+  stockMovements StockMovement[]
+  refundRequests RefundRequest[]
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model Address {
+  id         String  @id @default(cuid())
+  userId     String
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label      String  @default("Casa") // Casa, Trabalho...
+  recipient  String
+  cep        String
+  street     String
+  number     String
+  complement String?
+  district   String
+  city       String
+  state      String
+  phone      String?
+  isDefault  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ------------------------------- Catálogo ----------------------------
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?
+  image       String?
+  position    Int       @default(0)
+  active      Boolean   @default(true)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Product {
+  id             String  @id @default(cuid())
+  name           String
+  slug           String  @unique
+  description    String
+  priceCents     Int
+  compareAtCents Int? // "preço de" riscado, para exibir desconto
+  sku            String?
+  brand          String?
+  stock          Int     @default(0) // estoque usado quando não há variações
+  active         Boolean @default(true)
+  featured       Boolean @default(false)
+
+  // dimensões para cálculo de frete (Correios)
+  weightGrams Int @default(300)
+  lengthCm    Int @default(20)
+  widthCm     Int @default(15)
+  heightCm    Int @default(10)
+
+  // agregado de avaliações (desnormalizado para listagens rápidas)
+  ratingAvg   Float @default(0)
+  ratingCount Int   @default(0)
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  images         ProductImage[]
+  variants       ProductVariant[]
+  reviews        Review[]
+  stockMovements StockMovement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([active, featured])
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  alt       String?
+  position  Int     @default(0)
+}
+
+model ProductVariant {
+  id         String  @id @default(cuid())
+  productId  String
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name       String // ex.: "P / Preto"
+  size       String?
+  color      String?
+  sku        String?
+  priceCents Int? // null = usa o preço do produto
+  stock      Int     @default(0)
+  active     Boolean @default(true)
+
+  stockMovements StockMovement[]
+
+  @@index([productId])
+}
+
+// Histórico de movimentações de estoque (entrada, ajuste, venda, cancelamento)
+model StockMovement {
+  id        String          @id @default(cuid())
+  productId String
+  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId String?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  delta     Int // + entrada / - saída
+  resulting Int // estoque resultante após o movimento
+  // INITIAL | RESTOCK | ADJUST | CORRECTION | SALE | CANCEL_RESTORE
+  reason    String
+  note      String?
+
+  userId  String? // admin responsável (null quando automático, ex.: venda)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  orderId String? // pedido relacionado (venda/cancelamento)
+
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@index([variantId])
+  @@index([createdAt])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating    Int // 1..5
+  title     String?
+  comment   String
+  verified  Boolean  @default(false) // comprou o produto (pedido entregue/pago)
+  createdAt DateTime @default(now())
+
+  @@unique([productId, userId])
+}
+
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+}
+
+// ------------------------------- Carrinho ----------------------------
+
+// Carrinho persistente: visitantes são identificados por cookie (cartId);
+// no login o carrinho anônimo é mesclado ao do usuário.
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String?    @unique
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id        String  @id @default(cuid())
+  cartId    String
+  cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  variantId String?
+  quantity  Int     @default(1)
+
+  createdAt DateTime @default(now())
+
+  @@unique([cartId, productId, variantId])
+  @@index([cartId])
+}
+
+// ------------------------------- Cupons ------------------------------
+
+model Coupon {
+  id           String    @id @default(cuid())
+  code         String    @unique
+  description  String?
+  type         String // PERCENT | FIXED | FREE_SHIPPING
+  percent      Int? // para PERCENT (1..100)
+  valueCents   Int? // para FIXED
+  minOrderCents Int?
+  maxUses      Int?
+  usedCount    Int       @default(0)
+  perUserLimit Int?
+  startsAt     DateTime?
+  expiresAt    DateTime?
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  orders Order[]
+}
+
+// ------------------------------- Pedidos -----------------------------
+
+model Order {
+  id     String @id @default(cuid())
+  number String @unique // ex.: PED-2026-000123
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  // AGUARDANDO_PAGAMENTO | PAGO | EM_SEPARACAO | ENVIADO | ENTREGUE |
+  // CANCELADO | REEMBOLSADO
+  status String @default("AGUARDANDO_PAGAMENTO")
+
+  subtotalCents Int
+  discountCents Int @default(0)
+  shippingCents Int
+  totalCents    Int
+
+  couponId   String?
+  coupon     Coupon? @relation(fields: [couponId], references: [id])
+  couponCode String?
+
+  // snapshot do endereço de entrega no momento da compra
+  shipRecipient  String
+  shipCep        String
+  shipStreet     String
+  shipNumber     String
+  shipComplement String?
+  shipDistrict   String
+  shipCity       String
+  shipState      String
+  shipPhone      String?
+
+  shippingCarrier String  @default("CORREIOS") // CORREIOS | TABELA_INTERNA | MELHOR_ENVIO | RETIRADA
+  shippingMethod  String // PAC | SEDEX
+  shippingDays    Int?
+  trackingCode    String?
+
+  // ---- Integração Melhor Envio (geração de etiqueta / rastreio) ----
+  // Código estável do serviço cotado (ex.: "me-1" = PAC, "me-2" = SEDEX).
+  // Necessário para montar a etiqueta (o carrinho do ME exige o id numérico).
+  shippingServiceCode String?
+  // Dados retornados pelo Melhor Envio ao gerar a etiqueta:
+  shippingLabelId     String? // id do pedido/etiqueta no Melhor Envio
+  shippingLabelUrl    String? // URL do PDF da etiqueta (última conhecida)
+  shippingProtocol    String? // protocolo ME (útil para suporte)
+  shippingCompany     String? // transportadora efetiva (Correios, Jadlog, ...)
+  // Status interno do envio: PENDENTE | ETIQUETA_GERADA | POSTADO |
+  // EM_TRANSITO | ENTREGUE | ERRO  (independe do status comercial do pedido)
+  shippingStatus      String?
+  shippingPostedAt    DateTime? // quando a etiqueta foi gerada/postada
+  shippingDeliveredAt DateTime? // quando o rastreio acusou entrega
+  shippingError       String? // última mensagem de erro (para reprocessar)
+
+  // Canal da venda: ONLINE (site) | LOJA (venda no balcão / PDV)
+  channel String @default("ONLINE")
+
+  // Mercado Pago (online) / forma de pagamento no balcão (LOJA):
+  //   online: credit_card | pix | ticket ...
+  //   loja:   dinheiro | pix | cartao_credito | cartao_debito
+  paymentMethod  String?
+  mpPreferenceId String?
+  mpPaymentId    String?
+  paidAt         DateTime?
+
+  // Venda no balcão em dinheiro: valor recebido (para registrar o troco)
+  amountReceivedCents Int?
+
+  items          OrderItem[]
+  statusHistory  OrderStatusHistory[]
+  refundRequests RefundRequest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  // snapshot do produto no momento da compra (produto pode mudar depois)
+  productId      String?
+  variantId      String?
+  name           String
+  variantName    String?
+  unitPriceCents Int
+  quantity       Int
+  imageUrl       String?
+  weightGrams    Int     @default(300)
+
+  @@index([orderId])
+}
+
+model OrderStatusHistory {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status    String
+  note      String?
+  createdAt DateTime @default(now())
+}
+
+// Solicitação de reembolso/devolução feita pelo CLIENTE, analisada
+// pelo admin. O estorno do dinheiro é feito no painel do Mercado Pago
+// (o webhook marca o pedido como REEMBOLSADO) ou concluído manualmente.
+model RefundRequest {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  // ARREPENDIMENTO | DEFEITO | TAMANHO | ERRO_ENVIO | OUTRO
+  reason      String
+  description String
+  // SOLICITADO | EM_ANALISE | APROVADO | RECUSADO | CONCLUIDO
+  status      String   @default("SOLICITADO")
+  adminNote   String?
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([orderId])
+  @@index([userId])
+}
+
+// ------------------------------- Frete -------------------------------
+
+// Tabela de frete interna: usada como fallback quando não há contrato
+// ativo com os Correios (credenciais CWS ausentes no .env).
+model ShippingRule {
+  id             String  @id @default(cuid())
+  name           String // ex.: "Sudeste — PAC até 1kg"
+  service        String // PAC | SEDEX
+  cepStart       String // faixa de CEP (8 dígitos, sem hífen)
+  cepEnd         String
+  minWeightGrams Int     @default(0)
+  maxWeightGrams Int     @default(30000)
+  priceCents     Int
+  days           Int // prazo em dias úteis
+  active         Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ------------------------------- Infra -------------------------------
+
+// Auditoria de ações administrativas (requisito de segurança)
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String // ex.: product.create, order.status_update
+  entity    String
+  entityId  String?
+  detail    String? // JSON serializado
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// Idempotência e rastreabilidade dos webhooks de pagamento
+model WebhookEvent {
+  id          String    @id @default(cuid())
+  provider    String // mercadopago
+  externalId  String // id do evento/pagamento no provedor
+  type        String
+  payload     String // JSON bruto recebido
+  processedAt DateTime?
+  error       String?
+  createdAt   DateTime  @default(now())
+
+  @@unique([provider, externalId, type])
+}
