@@ -214,3 +214,40 @@ export async function sendPasswordReset(to: string, name: string, token: string)
     console.log(`[email:dev] Link de redefinição: ${url}`);
   }
 }
+
+/** Há SMTP configurado (Brevo/outro)? */
+export function isEmailConfigured(): boolean {
+  return Boolean(process.env.SMTP_HOST);
+}
+
+/**
+ * Testa a conexão com o servidor SMTP (ex.: Brevo) sem enviar e-mail.
+ * Surface erros de host/porta/credenciais logo na configuração.
+ */
+export async function verifyEmailTransport(): Promise<{ ok: boolean; message: string }> {
+  const transport = getTransport();
+  if (!transport) {
+    return { ok: false, message: "SMTP não configurado — defina SMTP_HOST/PORT/USER/PASS no ambiente." };
+  }
+  try {
+    await transport.verify();
+    return { ok: true, message: `Conexão SMTP OK (${process.env.SMTP_HOST}:${process.env.SMTP_PORT ?? 587}).` };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Falha ao conectar no SMTP." };
+  }
+}
+
+/** Envia um e-mail de teste para validar a configuração de envio. */
+export async function sendTestEmail(to: string): Promise<void> {
+  await send(
+    to,
+    "Teste de e-mail — Gata Fit ✅",
+    layout(
+      "E-mail configurado com sucesso!",
+      `<p>Se você recebeu esta mensagem, o envio de e-mails da sua loja está
+       <strong>funcionando</strong>. 🎉</p>
+       <p style="font-size:13px;color:#71717a">Enviado via ${process.env.SMTP_HOST ?? "SMTP"} em
+       ${new Date().toLocaleString("pt-BR")}.</p>`,
+    ),
+  );
+}

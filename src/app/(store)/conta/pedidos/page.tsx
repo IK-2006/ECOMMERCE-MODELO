@@ -38,32 +38,49 @@ export default async function OrdersPage() {
   return (
     <div className="space-y-3">
       {orders.map((order) => (
-        <Link
+        <div
           key={order.id}
-          href={`/conta/pedidos/${order.id}`}
-          className="block border border-zinc-200 p-5 transition-colors hover:border-zinc-900 dark:border-zinc-800 dark:hover:border-zinc-100"
+          className="border border-zinc-200 p-5 transition-colors hover:border-zinc-900 dark:border-zinc-800 dark:hover:border-zinc-100"
         >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-medium">{order.number}</p>
-              <p className="mt-0.5 text-[11px] tracking-wide text-zinc-400">
-                {formatDate(order.createdAt)}
-              </p>
+          {/* corpo do pedido → leva ao detalhe */}
+          <Link href={`/conta/pedidos/${order.id}`} className="block">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">{order.number}</p>
+                <p className="mt-0.5 text-[11px] tracking-wide text-zinc-400">
+                  {formatDate(order.createdAt)}
+                </p>
+              </div>
+              <Badge className={ORDER_STATUS_COLORS[order.status]}>
+                {ORDER_STATUS_LABELS[order.status] ?? order.status}
+              </Badge>
             </div>
-            <Badge className={ORDER_STATUS_COLORS[order.status]}>
-              {ORDER_STATUS_LABELS[order.status] ?? order.status}
-            </Badge>
-          </div>
-          <div className="mt-3 flex items-center justify-between text-sm">
-            <p className="text-zinc-500">
-              {order.items.length} ite{order.items.length === 1 ? "m" : "ns"}
-              {order.trackingCode && (
-                <span className="ml-2 text-accent">· rastreio {order.trackingCode}</span>
-              )}
-            </p>
-            <p className="font-medium">{formatCurrency(order.totalCents)}</p>
-          </div>
-        </Link>
+            <div className="mt-3 flex items-center justify-between text-sm">
+              <p className="text-zinc-500">
+                {order.items.length} ite{order.items.length === 1 ? "m" : "ns"}
+              </p>
+              <p className="font-medium">{formatCurrency(order.totalCents)}</p>
+            </div>
+          </Link>
+
+          {/* código de rastreio (link direto para a transportadora) */}
+          {order.trackingCode && order.shippingCarrier !== "RETIRADA" && (
+            <a
+              href={`https://rastreamento.correios.com.br/app/index.php?objeto=${order.trackingCode}`}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 flex items-center justify-between gap-2 border-t border-zinc-100 pt-3 text-sm text-accent hover:underline dark:border-zinc-800"
+            >
+              <span className="truncate">
+                Rastrear{order.shippingCompany ? ` · ${order.shippingCompany}` : ""}:{" "}
+                <span className="font-medium">{order.trackingCode}</span>
+              </span>
+              <span aria-hidden className="shrink-0">
+                →
+              </span>
+            </a>
+          )}
+        </div>
       ))}
     </div>
   );

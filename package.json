@@ -11,6 +11,7 @@
     "db:seed:prod": "tsx prisma/seed-prod.ts",
     "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts",
     "db:migrate:deploy": "prisma migrate deploy",
+    "email:test": "tsx scripts/send-test-email.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {

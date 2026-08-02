@@ -47,9 +47,10 @@ MELHOR_ENVIO_CLIENT_ID="..."
 MELHOR_ENVIO_CLIENT_SECRET="..."
 MELHOR_ENVIO_FROM_CEP="99300000"
 
-# E-mail (SMTP do provedor: Brevo, Resend, etc.)
-SMTP_HOST="..."; SMTP_PORT="587"; SMTP_USER="..."; SMTP_PASS="..."
-SMTP_FROM="Gata Fit <no-reply@usegatafit.com.br>"
+# E-mail — Brevo (plano grátis 300/dia). Veja "E-mail com Brevo" abaixo.
+SMTP_HOST="smtp-relay.brevo.com"; SMTP_PORT="587"
+SMTP_USER="<login que o Brevo mostra em SMTP>"; SMTP_PASS="<SMTP key do Brevo>"
+SMTP_FROM="Gata Fit <contato@usegatafit.com.br>"   # remetente VERIFICADO no Brevo
 
 # Dados da loja (rodapé + páginas legais)
 STORE_LEGAL_NAME="..."; STORE_CNPJ="..."; STORE_LEGAL_ADDRESS="..."
@@ -61,6 +62,29 @@ STORE_PICKUP_ADDRESS="Av. Maurício Cardoso, 944 — Centro, Soledade/RS"
 ```
 
 > Gere o `NEXTAUTH_SECRET` com `openssl rand -base64 32` (ou `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`).
+
+### E-mail com Brevo (grátis, 300 e-mails/dia)
+
+A loja envia e-mails transacionais (pedido recebido, pago, **enviado com rastreio**, entregue, reembolso, redefinição de senha). Sem SMTP configurado, eles só aparecem no log do servidor.
+
+**Passo a passo:**
+1. Crie a conta em **https://www.brevo.com** (plano gratuito).
+2. Menu **Transactional → Email → SMTP & API**, aba **SMTP**. Anote:
+   - **Server**: `smtp-relay.brevo.com` · **Port**: `587`
+   - **Login**: o e-mail mostrado ali → vai em `SMTP_USER`
+   - **SMTP key** (botão *Generate a new SMTP key*): a chave gerada → vai em `SMTP_PASS`
+     *(é a "SMTP key", NÃO a senha de acesso ao painel)*
+3. Em **Senders, Domains & Dedicated IPs**:
+   - **Verifique o remetente** que você vai usar em `SMTP_FROM` (ex.: `contato@usegatafit.com.br`). Sem verificar, o Brevo recusa o envio.
+   - **Autentique o domínio** (recomendado): o Brevo mostra os registros **SPF** (`TXT`) e **DKIM** (`TXT`/`CNAME`) para adicionar no **DNS** do domínio. Isso é o que faz o e-mail cair na **caixa de entrada** em vez do spam.
+4. Preencha `SMTP_HOST/PORT/USER/PASS/FROM` no serviço de hospedagem (nunca no código).
+5. **Teste o envio de verdade:**
+   ```bash
+   npm run email:test -- voce@email.com
+   ```
+   O comando verifica a conexão SMTP e envia um e-mail de teste. Confira a caixa de entrada (e o spam).
+
+> **Volume:** o plano grátis cobre 300 e-mails/dia — folgado para a escala da loja. Se um dia crescer muito, dá para subir de plano no Brevo ou trocar por Amazon SES (mais barato em volume) sem mudar o código, só as variáveis SMTP.
 
 ---
 
