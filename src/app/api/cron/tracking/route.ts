@@ -1,30 +1,11 @@
 import { NextResponse } from "next/server";
-import { timingSafeEqual } from "node:crypto";
+import { cronAuthorized } from "@/lib/cron-auth";
 import { refreshAllActiveTracking } from "@/services/shipping/labels";
 import { audit } from "@/lib/audit";
 import { getClientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
-
-/** Comparação de segredos em tempo constante (evita timing attack). */
-function secretMatches(provided: string | null): boolean {
-  const expected = process.env.CRON_SECRET;
-  if (!expected || !provided) return false;
-  const a = Buffer.from(provided);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
-
-function extractSecret(req: Request): string | null {
-  const auth = req.headers.get("authorization");
-  if (auth?.startsWith("Bearer ")) return auth.slice(7).trim();
-  const header = req.headers.get("x-cron-secret");
-  if (header) return header.trim();
-  const qs = new URL(req.url).searchParams.get("secret");
-  return qs ? qs.trim() : null;
-}
 
 /**
  * Sincroniza o rastreio de todos os pedidos ENVIADO com etiqueta ativa.
@@ -37,7 +18,7 @@ function extractSecret(req: Request): string | null {
  * (o formato do crontab está documentado em MELHOR-ENVIO-ETIQUETAS.md)
  */
 async function runCron(req: Request) {
-  if (!secretMatches(extractSecret(req))) {
+  if (!cronAuthorized(req)) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 

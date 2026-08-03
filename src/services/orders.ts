@@ -270,12 +270,21 @@ export async function updateOrderStatus(params: {
 
     // devolve estoque só na transição PARA cancelado/reembolsado
     if (statusChanged && (status === "CANCELADO" || status === "REEMBOLSADO")) {
-      await restoreStock(tx, orderId, order.number);
-      if (order.couponId) {
-        await tx.coupon.update({
-          where: { id: order.couponId },
-          data: { usedCount: { decrement: 1 } },
-        });
+      // Guarda contra toggle de status (ex.: CANCELADO → PAGO → CANCELADO):
+      // só devolve estoque/cupom UMA vez por pedido. Sem isso, alternar o
+      // status inflaria o estoque e corromperia o contador de uso do cupom.
+      const alreadyRestored = await tx.stockMovement.findFirst({
+        where: { orderId, reason: "CANCEL_RESTORE" },
+        select: { id: true },
+      });
+      if (!alreadyRestored) {
+        await restoreStock(tx, orderId, order.number);
+        if (order.couponId) {
+          await tx.coupon.update({
+            where: { id: order.couponId },
+            data: { usedCount: { decrement: 1 } },
+          });
+        }
       }
     }
 
@@ -365,4 +374,52 @@ export async function updateOrderStatus(params: {
   }
 
   return result.updated;
+}
+
+/**
+ * Cancela pedidos ONLINE presos em AGUARDANDO_PAGAMENTO há mais de
+ * ORDER_EXPIRY_HOURS horas e DEVOLVE o estoque reservado — evita que
+ * checkouts abandonados (cliente foi ao Mercado Pago e não pagou/desistiu)
+ * "comam" estoque para sempre (o estoque é reservado na criação do pedido).
+ *
+ * DESLIGADO por padrão: só roda se ORDER_EXPIRY_HOURS > 0.
+ * ⚠️ Se o BOLETO estiver habilitado, use uma janela MAIOR que o prazo de
+ * compensação do boleto (ex.: 96h) para não cancelar um boleto ainda pagável.
+ */
+export async function expireStaleOrders(): Promise<{
+  disabled?: boolean;
+  checked: number;
+  cancelled: number;
+  errors: number;
+}> {
+  const hours = Number(process.env.ORDER_EXPIRY_HOURS) || 0;
+  if (hours <= 0) return { disabled: true, checked: 0, cancelled: 0, errors: 0 };
+
+  const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000);
+  const stale = await prisma.order.findMany({
+    where: {
+      status: "AGUARDANDO_PAGAMENTO",
+      channel: "ONLINE",
+      createdAt: { lt: cutoff },
+    },
+    select: { id: true },
+    take: 200,
+  });
+
+  let cancelled = 0;
+  let errors = 0;
+  for (const o of stale) {
+    try {
+      await updateOrderStatus({
+        orderId: o.id,
+        status: "CANCELADO",
+        note: `Cancelado automaticamente — sem pagamento em ${hours}h`,
+      });
+      cancelled++;
+    } catch (err) {
+      errors++;
+      console.error("[expire-orders] falha no pedido", o.id, err);
+    }
+  }
+  return { checked: stale.length, cancelled, errors };
 }

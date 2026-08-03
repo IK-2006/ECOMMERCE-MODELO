@@ -21,7 +21,12 @@ import {
  * evento "Pagamentos". Em dev, exponha com `ngrok http 3000`.
  */
 export async function POST(req: Request) {
-  let payload: { type?: string; action?: string; data?: { id?: string | number } };
+  let payload: {
+    id?: string | number;
+    type?: string;
+    action?: string;
+    data?: { id?: string | number };
+  };
   try {
     payload = await req.json();
   } catch {
@@ -31,6 +36,11 @@ export async function POST(req: Request) {
   const url = new URL(req.url);
   const dataId = String(payload.data?.id ?? url.searchParams.get("data.id") ?? "");
   const type = payload.type ?? url.searchParams.get("type") ?? "";
+  // Chave de idempotência = id da NOTIFICAÇÃO (não do pagamento). O MP envia
+  // várias notificações para o MESMO pagamento (Pix/boleto: pending → approved).
+  // Se deduplicássemos pelo id do pagamento, a notificação "approved" seria
+  // descartada como "duplicada" e o pedido ficaria preso em AGUARDANDO_PAGAMENTO.
+  const notificationId = String(payload.id ?? url.searchParams.get("id") ?? dataId);
 
   // só processamos eventos de pagamento
   if (type !== "payment" || !dataId) {
@@ -47,8 +57,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Assinatura inválida" }, { status: 401 });
   }
 
-  // idempotência — evento já processado retorna 200 direto
-  const eventKey = { provider: "mercadopago", externalId: dataId, type: "payment" };
+  // idempotência — notificação já processada retorna 200 direto
+  const eventKey = { provider: "mercadopago", externalId: notificationId, type: "payment" };
   const existing = await prisma.webhookEvent.findUnique({
     where: { provider_externalId_type: eventKey },
   });
