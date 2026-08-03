@@ -5,6 +5,95 @@ com Ubuntu), mas a parte de banco/variáveis vale para qualquer hospedagem.
 
 ---
 
+## 0. Roteiro Hostinger KVM 1 (do zero ao ar)
+
+Guia linear pra seguir batido depois de contratar o **KVM 1**. As seções 1–10 detalham cada parte.
+
+**Ordem:** `0` (servidor + código) → `2` (variáveis) → `0.5` (1ª publicação) → `5` (domínio/HTTPS) → `6` (webhook) → `7` (backup) → `8` (segurança).
+
+### 0.1 Criar o VPS
+1. No painel da Hostinger, abra o **KVM 1** → **Sistema operacional** → escolha **Ubuntu 24.04 LTS** (sem painel/limpo). Defina uma **senha de root** forte.
+2. Anote o **IP do VPS** (aparece no painel, ex.: `191.101.x.x`).
+
+### 0.2 Primeiro acesso + usuário + swap
+```bash
+ssh root@SEU_IP                 # do seu PC
+apt update && apt upgrade -y
+
+# usuário de deploy (não trabalhe como root direto)
+adduser deploy && usermod -aG sudo deploy
+
+# swap de 2 GB (folga extra para o build; o KVM 1 tem 4 GB de RAM)
+fallocate -l 2G /swapfile && chmod 600 /swapfile
+mkswap /swapfile && swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
+su - deploy                     # daqui pra frente, como "deploy"
+```
+
+### 0.3 Instalar Node, PostgreSQL, Caddy e PM2
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs postgresql caddy
+sudo npm install -g pm2
+
+sudo -u postgres psql -c "CREATE DATABASE gatafit;"
+sudo -u postgres psql -c "CREATE USER gatafit WITH PASSWORD 'senha-forte-do-banco';"
+sudo -u postgres psql -c "ALTER DATABASE gatafit OWNER TO gatafit;"
+```
+
+### 0.4 Pegar o código (repositório PRIVADO via deploy key)
+O repositório é privado; o servidor autentica com uma **chave de deploy** (só leitura):
+```bash
+ssh-keygen -t ed25519 -C "deploy-gatafit" -f ~/.ssh/id_ed25519 -N ""
+cat ~/.ssh/id_ed25519.pub
+```
+Copie a chave e cole no GitHub: **repositório → Settings → Deploy keys → Add deploy key** (deixe *Allow write access* DESMARCADO). Depois:
+```bash
+git clone git@github.com:IK-2006/ECOMMERCE-MODELO.git ~/gatafit
+cd ~/gatafit
+```
+
+### 0.5 Primeira publicação
+1. Crie o **`.env`** (veja a seção 2 — todas as variáveis de produção).
+2. Instale, prepare o banco e crie o admin:
+   ```bash
+   npm install
+   sed -i 's/provider = "sqlite"/provider = "postgresql"/' prisma/schema.prisma
+   npx prisma db push
+   ADMIN_EMAIL="voce@usegatafit.com.br" ADMIN_PASSWORD="senha-forte-admin" npm run db:seed:prod
+   ```
+3. Suba com o PM2:
+   ```bash
+   npm run build
+   pm2 start "npm run start" --name gatafit
+   pm2 save
+   pm2 startup      # rode o comando que ele imprimir (sobe junto com o servidor)
+   ```
+
+Agora faça o **domínio/HTTPS** (seção 5), o **webhook** (6), o **backup** (7) e a **segurança** (8). Loja no ar. ✅
+
+### 0.6 Atualizações futuras — 1 comando
+Crie `~/gatafit/deploy.sh` (evita a pegadinha do `git pull` reverter o provider para sqlite):
+```bash
+#!/bin/bash
+set -e
+cd ~/gatafit
+git pull
+# produção usa PostgreSQL (o schema versionado fica em sqlite para o dev)
+sed -i 's/provider = "sqlite"/provider = "postgresql"/' prisma/schema.prisma
+npm install
+npx prisma db push
+npm run build
+pm2 restart gatafit
+```
+```bash
+chmod +x ~/gatafit/deploy.sh
+```
+Daí em diante, para publicar qualquer mudança: **`./deploy.sh`**.
+
+---
+
 ## 1. Trocar SQLite → PostgreSQL
 
 Em desenvolvimento a loja usa SQLite (arquivo). Em produção use **PostgreSQL**.
@@ -22,6 +111,8 @@ Em desenvolvimento a loja usa SQLite (arquivo). Em produção use **PostgreSQL**
    ```
 
 O schema é 100% compatível (valores em centavos/Int, status como String) — nada mais muda.
+
+> No servidor essa troca é **automática** (o `deploy.sh` da seção 0.6 aplica com `sed`). **Não comite** a mudança para `postgresql`: o schema versionado fica em `sqlite` para o ambiente de desenvolvimento continuar funcionando sem instalar nada.
 
 ---
 
@@ -99,7 +190,8 @@ sudo apt-get install -y nodejs
 sudo apt-get install -y postgresql
 sudo -u postgres psql -c "CREATE DATABASE gatafit;"
 sudo -u postgres psql -c "CREATE USER gatafit WITH PASSWORD 'senha-forte';"
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE gatafit TO gatafit;"
+# torna o usuário DONO do banco (no PG 15+ só GRANT não deixa criar tabelas no schema public)
+sudo -u postgres psql -c "ALTER DATABASE gatafit OWNER TO gatafit;"
 
 # PM2 (mantém o site rodando e reinicia sozinho)
 sudo npm install -g pm2
@@ -139,7 +231,18 @@ usegatafit.com.br, www.usegatafit.com.br {
 ```bash
 sudo systemctl reload caddy
 ```
-No **Registro.br**, aponte o domínio (registro A) para o **IP do VPS**. Pronto: `https://usegatafit.com.br` no ar, com cadeado.
+
+**Apontar o domínio (DNS):** no painel onde o domínio da loja está (Registro.br, Hostinger, etc.), crie **dois registros A** apontando para o **IP do VPS**:
+
+| Tipo | Nome | Valor |
+|---|---|---|
+| A | `@` (raiz) | `SEU_IP` |
+| A | `www` | `SEU_IP` |
+
+A propagação leva de minutos a algumas horas. Assim que resolver, o Caddy emite o certificado SSL sozinho e `https://usegatafit.com.br` fica no ar com cadeado (renovação automática).
+
+> **Se a Gata Fit já tem o domínio**, é só criar/editar esses registros A no provedor atual — não precisa transferir nada.
+> **Cloudflare (opcional):** comece com **DNS-only** (nuvem cinza) para o Caddy conseguir emitir o certificado; depois, se ligar o proxy (nuvem laranja), use **SSL/TLS = Full (strict)** para não dar loop de redirecionamento.
 
 ---
 
@@ -154,18 +257,29 @@ No painel do Mercado Pago → sua aplicação → **Webhooks**, cadastre:
 
 ---
 
-## 7. Backup automático (diário)
+## 7. Backup automático (diário) — grátis
 
-As fotos ficam em `public/uploads`. Um cron simples protege banco + fotos:
+O que precisa sobreviver: o **banco** (pedidos + clientes) e as **fotos** (`public/uploads`). O código já está no GitHub.
 
-`/etc/cron.daily/backup-gatafit` (torne executável: `chmod +x`):
+`/etc/cron.daily/backup-gatafit` (depois: `sudo chmod +x /etc/cron.daily/backup-gatafit`):
 ```bash
 #!/bin/bash
 DIR=/var/backups/gatafit; mkdir -p $DIR
-pg_dump -U gatafit gatafit | gzip > $DIR/db-$(date +%F).sql.gz
-tar czf $DIR/uploads-$(date +%F).tar.gz -C /caminho/do/projeto/public uploads
+# dump como usuário postgres (peer auth — sem senha; o cron roda como root)
+sudo -u postgres pg_dump gatafit | gzip > $DIR/db-$(date +%F).sql.gz
+tar czf $DIR/uploads-$(date +%F).tar.gz -C /home/deploy/gatafit/public uploads
 find $DIR -mtime +14 -delete   # mantém 14 dias
+
+# CÓPIA EXTERNA (recomendado) — sobrevive à perda do VPS. Descomente após configurar:
+# rclone copy $DIR b2:SEU-BUCKET/gatafit --max-age 2d
 ```
+
+> ⚠️ **Backup só no mesmo VPS não vale se o servidor morrer.** Envie uma cópia pra fora — o **Backblaze B2** dá 10 GB grátis (sobra muito):
+> ```bash
+> sudo apt-get install -y rclone
+> rclone config    # crie um remote "b2" (Backblaze B2) — só uma vez
+> ```
+> Depois é só descomentar a linha `rclone copy` acima.
 
 ---
 
@@ -227,13 +341,11 @@ pm2 restart gatafit
 
 ## 10. Atualizações futuras
 
+Com o `deploy.sh` da seção 0.6, publicar qualquer mudança é **um comando**:
 ```bash
-git pull            # (ou envie os arquivos)
-npm install
-npx prisma db push  # se o schema mudou
-npm run build
-pm2 restart gatafit
+cd ~/gatafit && ./deploy.sh
 ```
+Ele faz `git pull` → aplica o provider PostgreSQL → `npm install` → `prisma db push` (se o schema mudou) → `build` → `pm2 restart`. Use sempre ele em vez dos passos soltos, para não esquecer a troca do provider.
 
 ---
 
