@@ -12,11 +12,13 @@ interface PdvVariant {
   name: string;
   priceCents: number | null;
   stock: number;
+  barcode: string | null;
 }
 interface PdvProduct {
   id: string;
   name: string;
   sku: string | null;
+  barcode: string | null;
   priceCents: number;
   image: string | null;
   stock: number;
@@ -120,13 +122,14 @@ interface SaleResult {
   changeCents: number | null;
 }
 
-export function PdvTerminal({ products }: { products: PdvProduct[] }) {
+export function PdvTerminal({ products, sessionId }: { products: PdvProduct[]; sessionId: string }) {
   const { toast } = useToast();
   const [query, setQuery] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [payment, setPayment] = useState<PaymentMethod | null>(null);
   const [discount, setDiscount] = useState("");
   const [received, setReceived] = useState("");
+  const [cpf, setCpf] = useState("");
   const [variantPicker, setVariantPicker] = useState<PdvProduct | null>(null);
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<SaleResult | null>(null);
@@ -138,6 +141,16 @@ export function PdvTerminal({ products }: { products: PdvProduct[] }) {
       (p) => p.name.toLowerCase().includes(q) || (p.sku ?? "").toLowerCase().includes(q)
     );
   }, [products, query]);
+
+  // índice de código de barras (produto e variação) para leitura no PDV
+  const barcodeIndex = useMemo(() => {
+    const map = new Map<string, { p: PdvProduct; v: PdvVariant | null }>();
+    for (const p of products) {
+      if (p.barcode) map.set(p.barcode.trim(), { p, v: null });
+      for (const v of p.variants) if (v.barcode) map.set(v.barcode.trim(), { p, v });
+    }
+    return map;
+  }, [products]);
 
   const subtotalCents = cart.reduce((s, l) => s + l.unitPriceCents * l.quantity, 0);
   const discountCents = Math.min(Math.max(0, toCents(discount)), subtotalCents);
@@ -183,6 +196,20 @@ export function PdvTerminal({ products }: { products: PdvProduct[] }) {
     else addLine(p, null);
   };
 
+  // leitor de código de barras: digita/escaneia o código + Enter → adiciona
+  const handleScan = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter") return;
+    const code = query.trim();
+    if (!code) return;
+    const hit = barcodeIndex.get(code);
+    if (hit) {
+      e.preventDefault();
+      if (hit.v) addLine(hit.p, hit.v);
+      else pick(hit.p);
+      setQuery("");
+    }
+  };
+
   const changeQty = (key: string, delta: number) => {
     setCart((prev) =>
       prev.flatMap((l) => {
@@ -205,6 +232,7 @@ export function PdvTerminal({ products }: { products: PdvProduct[] }) {
     setPayment(null);
     setDiscount("");
     setReceived("");
+    setCpf("");
     setResult(null);
     setQuery("");
   };
@@ -236,6 +264,8 @@ export function PdvTerminal({ products }: { products: PdvProduct[] }) {
           discountCents,
           amountReceivedCents:
             payment === "dinheiro" && received !== "" ? receivedCents : null,
+          cashSessionId: sessionId,
+          fiscalCpf: cpf.replace(/\D/g, "") || undefined,
         }),
       });
       const data = await res.json();
@@ -297,7 +327,8 @@ export function PdvTerminal({ products }: { products: PdvProduct[] }) {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar produto por nome ou SKU..."
+            onKeyDown={handleScan}
+            placeholder="Buscar por nome/SKU ou ler o código de barras..."
             autoFocus
             className="pl-9"
           />
@@ -488,6 +519,17 @@ export function PdvTerminal({ products }: { products: PdvProduct[] }) {
                 )}
               </div>
             )}
+
+            <label className="flex items-center justify-between gap-3 text-sm">
+              <span className="text-zinc-500">CPF na nota</span>
+              <input
+                value={cpf}
+                onChange={(e) => setCpf(e.target.value)}
+                placeholder="opcional"
+                inputMode="numeric"
+                className="h-9 w-40 rounded-none border border-zinc-300 bg-white px-2.5 text-right text-sm tabular-nums focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent dark:border-zinc-700 dark:bg-zinc-950"
+              />
+            </label>
 
             <Button className="w-full" size="lg" loading={saving} disabled={!canFinish} onClick={finish}>
               Finalizar venda · {formatCurrency(totalCents)}

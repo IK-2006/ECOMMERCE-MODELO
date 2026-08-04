@@ -44,6 +44,8 @@ export async function createStoreSale(params: {
   paymentMethod: string;
   discountCents?: number;
   amountReceivedCents?: number | null;
+  cashSessionId?: string | null;
+  fiscalCpf?: string | null;
 }) {
   const { items, paymentMethod } = params;
   if (items.length === 0) throw new ApiError(400, "Adicione ao menos um item.");
@@ -105,6 +107,13 @@ export async function createStoreSale(params: {
   const userId = await getWalkInCustomerId();
 
   const order = await prisma.$transaction(async (tx) => {
+    // caixa: se informado, precisa estar ABERTO e ser do operador
+    if (params.cashSessionId) {
+      const cs = await tx.cashSession.findUnique({ where: { id: params.cashSessionId } });
+      if (!cs || cs.operatorId !== params.adminId || cs.status !== "ABERTO")
+        throw new ApiError(400, "Caixa inválido ou já fechado. Abra o caixa para vender.");
+    }
+
     // baixa de estoque atômica (mesma lógica da venda online)
     const movements: Array<{
       productId: string;
@@ -150,6 +159,8 @@ export async function createStoreSale(params: {
         paymentMethod,
         amountReceivedCents:
           paymentMethod === "dinheiro" ? params.amountReceivedCents ?? null : null,
+        cashSessionId: params.cashSessionId ?? null,
+        fiscalCpf: params.fiscalCpf || null,
         subtotalCents,
         discountCents,
         shippingCents: 0,
@@ -193,6 +204,18 @@ export async function createStoreSale(params: {
         note: `Venda em loja — pedido ${created.number}`,
         userId: params.adminId,
         orderId: created.id,
+      });
+    }
+
+    // dinheiro: registra a entrada no caixa (compõe o saldo/fechamento)
+    if (paymentMethod === "dinheiro" && params.cashSessionId) {
+      await tx.cashMovement.create({
+        data: {
+          sessionId: params.cashSessionId,
+          type: "VENDA",
+          amountCents: totalCents,
+          note: `Venda ${created.number}`,
+        },
       });
     }
 

@@ -7,6 +7,7 @@ type Tx = Prisma.TransactionClient;
 export const STOCK_REASONS: Record<string, string> = {
   INITIAL: "Estoque inicial",
   RESTOCK: "Entrada / reposição",
+  PURCHASE: "Entrada de compra",
   ADJUST: "Ajuste manual",
   CORRECTION: "Correção de inventário",
   SALE: "Venda",
@@ -93,5 +94,79 @@ export async function setStock(params: {
       });
     }
     return { oldStock, newStock: params.newStock, delta };
+  });
+}
+
+export interface StockEntryItem {
+  productId: string;
+  variantId?: string | null;
+  quantity: number;
+  costCents?: number | null;
+}
+
+/**
+ * Entrada de mercadoria (compra): SOMA ao estoque de cada item, registra
+ * o movimento PURCHASE (com custo + fornecedor) e atualiza o custo do
+ * produto/variação quando informado. Tudo numa transação.
+ */
+export async function createStockEntry(params: {
+  adminId: string;
+  supplierId?: string | null;
+  note?: string | null;
+  items: StockEntryItem[];
+}) {
+  if (params.items.length === 0) throw new ApiError(400, "Adicione ao menos um item.");
+  const supplierId = params.supplierId || null;
+
+  return prisma.$transaction(async (tx) => {
+    const results: Array<{ productId: string; variantId: string | null; added: number; resulting: number }> = [];
+
+    for (const it of params.items) {
+      const hasCost = it.costCents != null && it.costCents >= 0;
+      let resulting = 0;
+
+      if (it.variantId) {
+        const v = await tx.productVariant.findUnique({
+          where: { id: it.variantId },
+          select: { stock: true, productId: true },
+        });
+        if (!v || v.productId !== it.productId)
+          throw new ApiError(404, "Variação não encontrada");
+        await tx.productVariant.update({
+          where: { id: it.variantId },
+          data: { stock: { increment: it.quantity }, ...(hasCost ? { costCents: it.costCents } : {}) },
+        });
+        resulting = v.stock + it.quantity;
+      } else {
+        const p = await tx.product.findUnique({
+          where: { id: it.productId },
+          select: { stock: true },
+        });
+        if (!p) throw new ApiError(404, "Produto não encontrado");
+        await tx.product.update({
+          where: { id: it.productId },
+          data: { stock: { increment: it.quantity }, ...(hasCost ? { costCents: it.costCents } : {}) },
+        });
+        resulting = p.stock + it.quantity;
+      }
+
+      await tx.stockMovement.create({
+        data: {
+          productId: it.productId,
+          variantId: it.variantId ?? null,
+          delta: it.quantity,
+          resulting,
+          reason: "PURCHASE",
+          note: params.note ?? null,
+          costCents: hasCost ? it.costCents : null,
+          supplierId,
+          userId: params.adminId,
+        },
+      });
+
+      results.push({ productId: it.productId, variantId: it.variantId ?? null, added: it.quantity, resulting });
+    }
+
+    return results;
   });
 }

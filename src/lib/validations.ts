@@ -159,6 +159,53 @@ export const storeSaleSchema = z.object({
   paymentMethod: z.enum(["dinheiro", "pix", "cartao_credito", "cartao_debito"]),
   discountCents: z.number().int().min(0).default(0),
   amountReceivedCents: z.number().int().min(0).nullable().optional(),
+  cashSessionId: z.string().cuid().optional(),
+  fiscalCpf: z.string().trim().max(14).optional().or(z.literal("")),
+});
+
+// Ações do caixa do PDV (abrir, fechar, sangria, suprimento)
+export const cashActionSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("open"),
+    openingCents: z.number().int().min(0).max(100_000_000).default(0),
+  }),
+  z.object({
+    action: z.literal("close"),
+    sessionId: z.string().cuid(),
+    closingCents: z.number().int().min(0).max(100_000_000),
+    note: z.string().trim().max(200).optional().or(z.literal("")),
+  }),
+  z.object({
+    action: z.enum(["sangria", "suprimento"]),
+    sessionId: z.string().cuid(),
+    amountCents: z.number().int().min(1).max(100_000_000),
+    note: z.string().trim().max(200).optional().or(z.literal("")),
+  }),
+]);
+
+export const supplierSchema = z.object({
+  name: z.string().trim().min(2, "Nome muito curto").max(120),
+  cnpj: z.string().trim().max(20).optional().or(z.literal("")),
+  phone: z.string().trim().max(20).optional().or(z.literal("")),
+  email: z.string().trim().email("E-mail inválido").max(200).optional().or(z.literal("")),
+  notes: z.string().trim().max(500).optional().or(z.literal("")),
+  active: z.boolean().default(true),
+});
+
+// Entrada de mercadoria (compra) — sobe estoque com custo + fornecedor
+export const stockEntrySchema = z.object({
+  supplierId: z.string().cuid().optional().or(z.literal("")),
+  note: z.string().trim().max(200).optional().or(z.literal("")),
+  items: z
+    .array(
+      z.object({
+        productId: z.string().cuid(),
+        variantId: z.string().cuid().nullable().optional(),
+        quantity: z.number().int().min(1).max(1_000_000),
+        costCents: z.number().int().min(0).max(100_000_000).nullable().optional(),
+      })
+    )
+    .min(1, "Adicione ao menos um item"),
 });
 
 export const categorySchema = z.object({

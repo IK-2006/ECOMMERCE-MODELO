@@ -12,7 +12,10 @@
 // =====================================================================
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // "native" = seu ambiente local; "rhel-openssl-3.0.x" = runtime da Vercel.
+  // Necessário para o deploy na nuvem funcionar (não afeta o dev local).
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -49,6 +52,7 @@ model User {
   auditLogs      AuditLog[]
   stockMovements StockMovement[]
   refundRequests RefundRequest[]
+  cashSessions   CashSession[]
 }
 
 model PasswordResetToken {
@@ -104,6 +108,7 @@ model Product {
   priceCents     Int
   compareAtCents Int? // "preço de" riscado, para exibir desconto
   sku            String?
+  barcode        String? // código de barras (EAN/GTIN) para leitura no PDV
   brand          String?
   stock          Int     @default(0) // estoque usado quando não há variações
   active         Boolean @default(true)
@@ -118,6 +123,18 @@ model Product {
   // agregado de avaliações (desnormalizado para listagens rápidas)
   ratingAvg   Float @default(0)
   ratingCount Int   @default(0)
+
+  // ---- Fiscal (NF-e / NFC-e) ----
+  ncm     String? // código NCM (8 dígitos)
+  cest    String? // código CEST (substituição tributária), opcional
+  origem  String  @default("0") // origem da mercadoria (0=nacional ... 8)
+  unidade String  @default("UN") // unidade comercial (UN, PC, KG...)
+
+  // ---- Estoque / compras (gestão estilo ERP) ----
+  costCents  Int? // custo de compra (margem + valorização do estoque)
+  minStock   Int? // estoque mínimo para alerta
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
 
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id])
@@ -151,13 +168,16 @@ model ProductVariant {
   size       String?
   color      String?
   sku        String?
+  barcode    String? // código de barras (EAN/GTIN) para leitura no PDV
   priceCents Int? // null = usa o preço do produto
+  costCents  Int? // custo de compra da variação (opcional)
   stock      Int     @default(0)
   active     Boolean @default(true)
 
   stockMovements StockMovement[]
 
   @@index([productId])
+  @@index([barcode])
 }
 
 // Histórico de movimentações de estoque (entrada, ajuste, venda, cancelamento)
@@ -170,9 +190,14 @@ model StockMovement {
 
   delta     Int // + entrada / - saída
   resulting Int // estoque resultante após o movimento
-  // INITIAL | RESTOCK | ADJUST | CORRECTION | SALE | CANCEL_RESTORE
+  // INITIAL | RESTOCK | PURCHASE | ADJUST | CORRECTION | SALE | CANCEL_RESTORE
   reason    String
   note      String?
+
+  // entrada de compra (reason PURCHASE): custo unitário e fornecedor
+  costCents  Int?
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
 
   userId  String? // admin responsável (null quando automático, ex.: venda)
   user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -326,9 +351,15 @@ model Order {
   // Venda no balcão em dinheiro: valor recebido (para registrar o troco)
   amountReceivedCents Int?
 
+  // ---- Fiscal / caixa (PDV) ----
+  fiscalCpf     String? // CPF do consumidor na nota (NFC-e/NF-e), opcional
+  cashSessionId String?
+  cashSession   CashSession? @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
+
   items          OrderItem[]
   statusHistory  OrderStatusHistory[]
   refundRequests RefundRequest[]
+  fiscalInvoices FiscalInvoice[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -407,6 +438,89 @@ model ShippingRule {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ---------------------- Estoque / compras (ERP) ----------------------
+
+// Fornecedor (para entrada de mercadoria / compras)
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String
+  cnpj      String?
+  phone     String?
+  email     String?
+  notes     String?
+  active    Boolean  @default(true)
+  products  Product[]
+  movements StockMovement[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ------------------------------- PDV / caixa -------------------------
+
+// Sessão de caixa do PDV (abertura → movimentos → fechamento).
+model CashSession {
+  id           String   @id @default(cuid())
+  operatorId   String
+  operator     User     @relation(fields: [operatorId], references: [id])
+  status       String   @default("ABERTO") // ABERTO | FECHADO
+  openingCents Int      @default(0) // fundo de troco na abertura
+  closingCents Int? // valor contado no fechamento
+  note         String?
+  openedAt     DateTime @default(now())
+  closedAt     DateTime?
+
+  movements CashMovement[]
+  orders    Order[]
+
+  @@index([status])
+  @@index([operatorId])
+}
+
+// Movimento de caixa: sangria (retirada), suprimento (aporte) ou venda.
+model CashMovement {
+  id          String   @id @default(cuid())
+  sessionId   String
+  session     CashSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  type        String // SANGRIA | SUPRIMENTO | VENDA
+  amountCents Int
+  note        String?
+  createdAt   DateTime @default(now())
+
+  @@index([sessionId])
+}
+
+// ------------------------------- Fiscal ------------------------------
+
+// Documento fiscal (NFC-e do balcão ou NF-e de envio) emitido via gateway.
+// A comunicação com a SEFAZ é feita pelo provedor (Focus NFe); guardamos
+// aqui o vínculo com o pedido, o status e os links do DANFE/XML.
+model FiscalInvoice {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  type        String // NFCE | NFE
+  // PENDENTE | PROCESSANDO | AUTORIZADA | REJEITADA | CANCELADA | ERRO
+  status      String   @default("PENDENTE")
+  provider    String   @default("focusnfe")
+  providerRef String?  @unique // referência idempotente enviada ao provedor
+
+  number    Int? // número da nota
+  series    String? // série
+  accessKey String? // chave de acesso (44 dígitos)
+  protocol  String? // protocolo de autorização da SEFAZ
+  danfeUrl  String? // PDF do DANFE/DANFCE
+  xmlUrl    String? // XML autorizado
+  error     String? // motivo de rejeição/erro (para reprocessar)
+  emittedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([status])
 }
 
 // ------------------------------- Infra -------------------------------

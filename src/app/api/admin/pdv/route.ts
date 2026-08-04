@@ -17,6 +17,8 @@ export const POST = handler(async (req) => {
     paymentMethod: body.paymentMethod,
     discountCents: body.discountCents,
     amountReceivedCents: body.amountReceivedCents ?? null,
+    cashSessionId: body.cashSessionId ?? null,
+    fiscalCpf: body.fiscalCpf || null,
   });
 
   await audit({
