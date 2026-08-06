@@ -28,8 +28,6 @@ export const PERMISSIONS = [
   "shipping.manage",
   "refunds.manage",
   "reports.read",
-  "finance.read", // Fase 2
-  "finance.write", // Fase 2
   "purchases.read", // Fase 3
   "purchases.write", // Fase 3
   "fiscal.manage", // Fase 6
@@ -116,8 +114,6 @@ const MATRIX: Record<Role, readonly Permission[] | "*"> = {
     "customers.read",
     "refunds.manage",
     "reports.read",
-    "finance.read",
-    "finance.write",
   ],
   CUSTOMER: [],
 };

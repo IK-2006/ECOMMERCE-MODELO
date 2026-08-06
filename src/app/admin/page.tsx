@@ -5,6 +5,7 @@ import { lowStockItems } from "@/services/stock";
 import { formatCurrency, ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
 import { RevenueChart } from "@/components/admin/RevenueChart";
+import { ReportDownload } from "@/components/admin/ReportDownload";
 
 export const dynamic = "force-dynamic";
 
@@ -79,9 +80,9 @@ export default async function AdminDashboard() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <h1 className="font-serif text-3xl font-medium tracking-tight">Dashboard</h1>
+      <h1 className="font-serif text-3xl font-medium tracking-tight">Visão Geral</h1>
       <p className="mt-2 text-[11px] uppercase tracking-[0.2em] text-zinc-400">
-        Visão geral dos últimos 30 dias
+        Resumo, desempenho e relatórios dos últimos 30 dias
       </p>
 
       {/* métricas */}
@@ -176,6 +177,33 @@ export default async function AdminDashboard() {
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* relatórios / exportação (consolidado aqui) */}
+      <div className="mt-6 grid gap-6 sm:grid-cols-2">
+        <div className="rounded-none border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="font-semibold">Exportar vendas</h2>
+          <p className="mt-1 text-sm text-zinc-500">
+            Pedidos do período em CSV (abre no Excel/Google Sheets).
+          </p>
+          <div className="mt-4">
+            <ReportDownload endpoint="sales" />
+          </div>
+        </div>
+        <div className="rounded-none border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="font-semibold">Exportar estoque</h2>
+          <p className="mt-1 text-sm text-zinc-500">
+            Posição atual e valorização (custo) de todos os itens.
+          </p>
+          <div className="mt-4">
+            <a
+              href="/api/admin/reports/stock"
+              className="inline-flex h-10 items-center rounded-none bg-accent px-4 text-sm font-medium text-white hover:opacity-90"
+            >
+              ⬇ Baixar CSV de estoque
+            </a>
+          </div>
         </div>
       </div>
     </div>

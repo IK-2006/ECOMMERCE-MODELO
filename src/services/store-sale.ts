@@ -2,7 +2,6 @@ import { prisma } from "@/lib/prisma";
 import { ApiError } from "@/lib/api-helpers";
 import { generateOrderNumber } from "@/lib/utils";
 import { recordMovement } from "@/services/stock";
-import { postSaleIncome } from "@/services/finance";
 import { storeConfig } from "@/lib/store-config";
 
 // ---------------------------------------------------------------
@@ -219,9 +218,6 @@ export async function createStoreSale(params: {
         },
       });
     }
-
-    // financeiro: lança a receita realizada na conta certa (no-op se não configurado)
-    await postSaleIncome(tx, created);
 
     return created;
   });

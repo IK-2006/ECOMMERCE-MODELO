@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
 import { ApiError } from "@/lib/api-helpers";
-import { postPurchasePayable } from "@/services/finance";
 import type { Prisma } from "@prisma/client";
 
 type Tx = Prisma.TransactionClient;
@@ -194,21 +193,6 @@ export async function createStockEntryTx(tx: Tx, params: StockEntryParams) {
       });
 
       results.push({ productId: it.productId, variantId: it.variantId ?? null, added: it.quantity, resulting });
-    }
-
-    // financeiro: gera a conta a pagar (pendente) da compra, se houver custo total
-    const totalCostCents = params.items.reduce(
-      (s, it) => s + (it.costCents && it.costCents > 0 ? it.costCents * it.quantity : 0),
-      0
-    );
-    if (totalCostCents > 0) {
-      const n = params.items.length;
-      await postPurchasePayable(tx, {
-        supplierId,
-        amountCents: totalCostCents,
-        description: `Compra — entrada de mercadoria (${n} ${n === 1 ? "item" : "itens"})`,
-        createdById: params.adminId,
-      });
     }
 
     return results;

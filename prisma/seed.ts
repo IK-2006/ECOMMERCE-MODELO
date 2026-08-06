@@ -338,9 +338,6 @@ async function main() {
     prisma.cashMovement.deleteMany(),
     prisma.cashSession.deleteMany(),
     prisma.fiscalInvoice.deleteMany(),
-    prisma.financialEntry.deleteMany(),
-    prisma.financialAccount.deleteMany(),
-    prisma.financialCategory.deleteMany(),
     prisma.purchaseOrderItem.deleteMany(),
     prisma.purchaseOrder.deleteMany(),
     prisma.customerProfile.deleteMany(),
@@ -651,26 +648,6 @@ async function main() {
       productId: allProducts[i % allProducts.length].id,
     })),
   });
-
-  // financeiro (Fase 2): contas e categorias padrão — idempotente
-  if ((await prisma.financialAccount.count()) === 0) {
-    await prisma.financialAccount.createMany({
-      data: [
-        { name: "Caixa da loja", kind: "CAIXA" },
-        { name: "Banco", kind: "BANCO" },
-        { name: "Mercado Pago", kind: "GATEWAY" },
-      ],
-    });
-  }
-  if ((await prisma.financialCategory.count()) === 0) {
-    await prisma.financialCategory.createMany({
-      data: [
-        { name: "Vendas", type: "INCOME" },
-        { name: "Fornecedores", type: "EXPENSE" },
-        { name: "Despesas", type: "EXPENSE" },
-      ],
-    });
-  }
 
   console.log("✅ Seed concluído — Gata Fit!");
   console.log("   Admin:   admin@loja.com / admin123");
