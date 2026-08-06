@@ -332,6 +332,20 @@ async function main() {
 
   // limpa tudo (ordem respeita FKs)
   await prisma.$transaction([
+    // ERP (Fases 1–9) — limpar primeiro (referenciam usuário/pedido/produto/
+    // fornecedor). Sem isso, CashSession (FK obrigatória → User) bloqueia a
+    // limpeza de usuários. Filhos antes dos pais.
+    prisma.cashMovement.deleteMany(),
+    prisma.cashSession.deleteMany(),
+    prisma.fiscalInvoice.deleteMany(),
+    prisma.financialEntry.deleteMany(),
+    prisma.financialAccount.deleteMany(),
+    prisma.financialCategory.deleteMany(),
+    prisma.purchaseOrderItem.deleteMany(),
+    prisma.purchaseOrder.deleteMany(),
+    prisma.customerProfile.deleteMany(),
+    prisma.stockMovement.deleteMany(),
+    prisma.supplier.deleteMany(),
     prisma.webhookEvent.deleteMany(),
     prisma.auditLog.deleteMany(),
     prisma.orderStatusHistory.deleteMany(),
