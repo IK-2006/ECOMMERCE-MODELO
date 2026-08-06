@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { handler } from "@/lib/api-helpers";
-import { requireAdmin } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { ORDER_STATUS_LABELS } from "@/lib/utils";
 
 /**
@@ -8,7 +8,7 @@ import { ORDER_STATUS_LABELS } from "@/lib/utils";
  * Exporta CSV de vendas do período (separador ; — abre direto no Excel BR).
  */
 export const GET = handler(async (req) => {
-  await requireAdmin();
+  await requirePermission("reports.read");
 
   const url = new URL(req.url);
   const inicio = url.searchParams.get("inicio");

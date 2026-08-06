@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/session";
+import { requirePagePermission } from "@/lib/page-guard";
 import { getOpenSession, cashSummary } from "@/services/cash";
 import { PdvTerminal } from "@/components/admin/PdvTerminal";
 import { CashControls } from "@/components/admin/CashControls";
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Venda em Loja" };
 
 export default async function PdvPage() {
-  const admin = await requireAdmin();
+  const admin = await requirePagePermission("pos.operate");
   const [products, session] = await Promise.all([
     prisma.product.findMany({
       where: { active: true },

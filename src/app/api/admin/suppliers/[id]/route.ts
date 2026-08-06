@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { handler, ApiError } from "@/lib/api-helpers";
-import { requireAdmin } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { supplierSchema } from "@/lib/validations";
 import { audit } from "@/lib/audit";
 import { getClientIp } from "@/lib/rate-limit";
 
 /** PATCH /api/admin/suppliers/[id] — edita fornecedor */
 export const PATCH = handler(async (req, ctx: { params: Promise<{ id: string }> }) => {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("suppliers.write");
   const { id } = await ctx.params;
   const body = supplierSchema.parse(await req.json());
 
@@ -40,7 +40,7 @@ export const PATCH = handler(async (req, ctx: { params: Promise<{ id: string }> 
 
 /** DELETE /api/admin/suppliers/[id] — exclui (ou desativa se já usado) */
 export const DELETE = handler(async (req, ctx: { params: Promise<{ id: string }> }) => {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("suppliers.write");
   const { id } = await ctx.params;
 
   const supplier = await prisma.supplier.findUnique({ where: { id } });

@@ -1,10 +1,12 @@
 import { prisma } from "@/lib/prisma";
+import { requirePagePermission } from "@/lib/page-guard";
 import { hasCorreiosCredentials, hasMelhorEnvioCredentials } from "@/services/shipping";
 import { ShippingRuleManager } from "@/components/admin/ShippingRuleManager";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminShippingPage() {
+  await requirePagePermission("shipping.manage");
   const rules = await prisma.shippingRule.findMany({
     orderBy: [{ service: "asc" }, { cepStart: "asc" }, { minWeightGrams: "asc" }],
   });

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { requirePagePermission } from "@/lib/page-guard";
 import { formatCurrency } from "@/lib/utils";
 import { storeConfig } from "@/lib/store-config";
 import { STORE_PAYMENT_LABELS } from "@/services/store-sale";
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Recibo de venda" };
 
 export default async function ReceiptPage({ params }: { params: Promise<{ id: string }> }) {
+  await requirePagePermission("pos.operate");
   const { id } = await params;
   const order = await prisma.order.findUnique({ where: { id }, include: { items: true } });
   if (!order) notFound();

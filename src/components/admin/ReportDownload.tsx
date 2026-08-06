@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
-export function ReportDownload() {
+export function ReportDownload({ endpoint = "sales" }: { endpoint?: string }) {
   const today = new Date().toISOString().slice(0, 10);
   const monthAgo = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
   const [inicio, setInicio] = useState(monthAgo);
@@ -12,7 +12,7 @@ export function ReportDownload() {
 
   const download = () => {
     const params = new URLSearchParams({ inicio, fim });
-    window.open(`/api/admin/reports/sales?${params}`, "_blank");
+    window.open(`/api/admin/reports/${endpoint}?${params}`, "_blank");
   };
 
   return (

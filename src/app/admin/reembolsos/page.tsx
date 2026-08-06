@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { requirePagePermission } from "@/lib/page-guard";
 import { RefundManager } from "@/components/admin/RefundManager";
 import { OPEN_REFUND_STATUSES } from "@/lib/utils";
 
@@ -6,6 +7,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Reembolsos" };
 
 export default async function AdminRefundsPage() {
+  await requirePagePermission("refunds.manage");
   const requests = await prisma.refundRequest.findMany({
     include: {
       order: { select: { number: true, totalCents: true, status: true } },

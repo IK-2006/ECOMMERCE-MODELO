@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { handler, ApiError } from "@/lib/api-helpers";
-import { requireAdmin } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { productSchema } from "@/lib/validations";
 import { slugify } from "@/lib/utils";
 import { generateProductSku, buildVariantSku } from "@/lib/sku";
@@ -10,7 +10,7 @@ import { getClientIp } from "@/lib/rate-limit";
 
 /** PATCH /api/admin/products/[id] — atualiza produto (substitui imagens/variações) */
 export const PATCH = handler(async (req, ctx: { params: Promise<{ id: string }> }) => {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("products.write");
   const { id } = await ctx.params;
   const body = productSchema.parse(await req.json());
 
@@ -69,6 +69,7 @@ export const PATCH = handler(async (req, ctx: { params: Promise<{ id: string }> 
         sku,
         brand: body.brand || null,
         stock: body.stock,
+        minStock: body.minStock ?? null,
         active: body.active,
         featured: body.featured,
         weightGrams: body.weightGrams,
@@ -101,7 +102,7 @@ export const PATCH = handler(async (req, ctx: { params: Promise<{ id: string }> 
 
 /** DELETE /api/admin/products/[id] — desativa (soft) ou exclui se nunca vendido */
 export const DELETE = handler(async (req, ctx: { params: Promise<{ id: string }> }) => {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("products.write");
   const { id } = await ctx.params;
 
   const product = await prisma.product.findUnique({ where: { id } });

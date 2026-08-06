@@ -1,11 +1,14 @@
 import { prisma } from "@/lib/prisma";
+import { requirePagePermission } from "@/lib/page-guard";
 import { formatCurrency } from "@/lib/utils";
 import { StockEntryPanel } from "@/components/admin/StockEntryPanel";
+import { InventoryPanel } from "@/components/admin/InventoryPanel";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Estoque" };
 
 export default async function StockPage() {
+  await requirePagePermission("stock.read");
   const [products, suppliers] = await Promise.all([
     prisma.product.findMany({
       where: { active: true },
@@ -26,17 +29,17 @@ export default async function StockPage() {
     min: number | null;
   };
   const rows: Row[] = [];
-  const pickerItems: { productId: string; variantId: string | null; label: string; sku: string | null }[] = [];
+  const pickerItems: { productId: string; variantId: string | null; label: string; sku: string | null; stock: number }[] = [];
 
   for (const p of products) {
     if (p.variants.length > 0) {
       for (const v of p.variants) {
         rows.push({ key: v.id, name: p.name, variant: v.name, sku: v.sku ?? p.sku, stock: v.stock, costCents: v.costCents ?? p.costCents, min: p.minStock });
-        pickerItems.push({ productId: p.id, variantId: v.id, label: `${p.name} · ${v.name}`, sku: v.sku ?? p.sku });
+        pickerItems.push({ productId: p.id, variantId: v.id, label: `${p.name} · ${v.name}`, sku: v.sku ?? p.sku, stock: v.stock });
       }
     } else {
       rows.push({ key: p.id, name: p.name, variant: null, sku: p.sku, stock: p.stock, costCents: p.costCents, min: p.minStock });
-      pickerItems.push({ productId: p.id, variantId: null, label: p.name, sku: p.sku });
+      pickerItems.push({ productId: p.id, variantId: null, label: p.name, sku: p.sku, stock: p.stock });
     }
   }
 
@@ -56,7 +59,10 @@ export default async function StockPage() {
             Posição do estoque, custo e valorização. Use “Entrada de mercadoria” para lançar compras.
           </p>
         </div>
-        <StockEntryPanel items={pickerItems} suppliers={suppliers} />
+        <div className="flex gap-2">
+          <InventoryPanel items={pickerItems} />
+          <StockEntryPanel items={pickerItems} suppliers={suppliers} />
+        </div>
       </div>
 
       {/* resumo */}

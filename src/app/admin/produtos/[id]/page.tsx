@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requirePagePermission } from "@/lib/page-guard";
 import { ProductForm } from "@/components/admin/ProductForm";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,7 @@ export default async function EditProductPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requirePagePermission("products.write");
   const { id } = await params;
   const [product, categories] = await Promise.all([
     prisma.product.findUnique({
@@ -40,6 +42,7 @@ export default async function EditProductPage({
           sku: product.sku ?? "",
           brand: product.brand ?? "",
           stock: product.stock,
+          minStock: product.minStock ?? 0,
           active: product.active,
           featured: product.featured,
           weightGrams: product.weightGrams,

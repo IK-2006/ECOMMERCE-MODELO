@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { handler, ApiError } from "@/lib/api-helpers";
-import { requireAdmin } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { couponSchema } from "@/lib/validations";
 import { audit } from "@/lib/audit";
 import { getClientIp } from "@/lib/rate-limit";
 
 export const PATCH = handler(async (req, ctx: { params: Promise<{ id: string }> }) => {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("coupons.write");
   const { id } = await ctx.params;
   const body = couponSchema.parse(await req.json());
 
@@ -49,7 +49,7 @@ export const PATCH = handler(async (req, ctx: { params: Promise<{ id: string }> 
 });
 
 export const DELETE = handler(async (req, ctx: { params: Promise<{ id: string }> }) => {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("coupons.write");
   const { id } = await ctx.params;
 
   const used = await prisma.order.count({ where: { couponId: id } });

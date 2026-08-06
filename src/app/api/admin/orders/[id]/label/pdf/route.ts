@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { handler, ApiError } from "@/lib/api-helpers";
-import { requireAdmin } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { getPrintUrl } from "@/services/shipping/melhorenvio-labels";
 
 /**
@@ -11,7 +11,7 @@ import { getPrintUrl } from "@/services/shipping/melhorenvio-labels";
  * URL conhecida se a chamada falhar. Somente admin.
  */
 export const GET = handler(async (_req, ctx: { params: Promise<{ id: string }> }) => {
-  await requireAdmin();
+  await requirePermission("orders.write");
   const { id } = await ctx.params;
 
   const order = await prisma.order.findUnique({

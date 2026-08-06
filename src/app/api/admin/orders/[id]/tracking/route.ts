@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { handler, ApiError, tooMany } from "@/lib/api-helpers";
-import { requireAdmin } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { audit } from "@/lib/audit";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { refreshTracking } from "@/services/shipping/labels";
@@ -11,7 +11,7 @@ import { refreshTracking } from "@/services/shipping/labels";
  * Se a entrega for confirmada, marca ENTREGUE (notifica o cliente).
  */
 export const POST = handler(async (req, ctx: { params: Promise<{ id: string }> }) => {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("orders.write");
   const { id } = await ctx.params;
   if (!id) throw new ApiError(400, "Pedido inválido");
 

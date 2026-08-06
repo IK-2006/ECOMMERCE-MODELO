@@ -8,6 +8,7 @@ import {
   sendOrderDelivered,
 } from "@/lib/email";
 import { recordMovement } from "@/services/stock";
+import { postSaleIncome, cancelSaleIncome } from "@/services/finance";
 import { trackPurchase } from "@/services/tracking/meta-capi";
 import {
   sendWhatsApp,
@@ -285,6 +286,8 @@ export async function updateOrderStatus(params: {
             data: { usedCount: { decrement: 1 } },
           });
         }
+        // financeiro: estorna a receita da venda (uma única vez por pedido)
+        await cancelSaleIncome(tx, orderId);
       }
     }
 
@@ -302,6 +305,11 @@ export async function updateOrderStatus(params: {
       },
       include: { user: true },
     });
+
+    // financeiro: pagamento confirmado → lança a receita realizada (idempotente)
+    if (statusChanged && status === "PAGO") {
+      await postSaleIncome(tx, updated);
+    }
 
     return { updated, statusChanged };
   });

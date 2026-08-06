@@ -1,21 +1,21 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { handler } from "@/lib/api-helpers";
-import { requireAdmin } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { supplierSchema } from "@/lib/validations";
 import { audit } from "@/lib/audit";
 import { getClientIp } from "@/lib/rate-limit";
 
 /** GET /api/admin/suppliers — lista fornecedores */
 export const GET = handler(async () => {
-  await requireAdmin();
+  await requirePermission("suppliers.write");
   const suppliers = await prisma.supplier.findMany({ orderBy: { name: "asc" } });
   return NextResponse.json(suppliers);
 });
 
 /** POST /api/admin/suppliers — cria fornecedor */
 export const POST = handler(async (req) => {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("suppliers.write");
   const body = supplierSchema.parse(await req.json());
 
   const supplier = await prisma.supplier.create({

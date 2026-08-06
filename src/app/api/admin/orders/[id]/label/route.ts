@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { handler, ApiError, tooMany } from "@/lib/api-helpers";
-import { requireAdmin } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { audit } from "@/lib/audit";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { generateLabelForOrder } from "@/services/shipping/labels";
@@ -11,7 +11,7 @@ import { generateLabelForOrder } from "@/services/shipping/labels";
  * rastreio/PDF e marca o pedido como ENVIADO (notifica o cliente).
  */
 export const POST = handler(async (req, ctx: { params: Promise<{ id: string }> }) => {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("orders.write");
   const { id } = await ctx.params;
   if (!id) throw new ApiError(400, "Pedido inválido");
 

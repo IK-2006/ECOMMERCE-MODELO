@@ -215,6 +215,35 @@ export async function sendPasswordReset(to: string, name: string, token: string)
   }
 }
 
+/**
+ * Convite de acesso ao painel: a conta é criada sem senha e o funcionário
+ * define a sua pelo link (mesmo fluxo de "redefinir senha"). Link mais longo
+ * (7 dias) porque é onboarding, não recuperação urgente.
+ */
+export async function sendUserInvite(params: {
+  to: string;
+  name: string;
+  token: string;
+  roleLabel: string;
+}) {
+  const url = `${process.env.NEXT_PUBLIC_APP_URL}/redefinir-senha?token=${params.token}`;
+  await send(
+    params.to,
+    "Você foi convidado para o painel da Gata Fit",
+    layout(
+      `Olá, ${params.name}!`,
+      `<p>Uma conta de acesso ao painel foi criada para você com o perfil
+       <strong>${params.roleLabel}</strong>. Defina sua senha para começar — o link
+       vale por <strong>7 dias</strong>.</p>
+       <p style="margin:20px 0"><a href="${url}" style="background:#b07885;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">Definir minha senha</a></p>
+       <p style="font-size:13px;color:#71717a">Se você não esperava este convite, ignore este e-mail.</p>`
+    )
+  );
+  if (!process.env.SMTP_HOST) {
+    console.log(`[email:dev] Link de convite (${params.roleLabel}): ${url}`);
+  }
+}
+
 /** Há SMTP configurado (Brevo/outro)? */
 export function isEmailConfigured(): boolean {
   return Boolean(process.env.SMTP_HOST);

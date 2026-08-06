@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { handler } from "@/lib/api-helpers";
-import { requireAdmin } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { cashActionSchema } from "@/lib/validations";
 import {
   getOpenSession,
@@ -14,7 +14,7 @@ import { getClientIp } from "@/lib/rate-limit";
 
 /** GET /api/admin/cash — caixa aberto do operador + resumo */
 export const GET = handler(async () => {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("cash.operate");
   const session = await getOpenSession(admin.id);
   if (!session) return NextResponse.json({ session: null });
   const summary = await cashSummary(session.id);
@@ -23,7 +23,7 @@ export const GET = handler(async () => {
 
 /** POST /api/admin/cash — abrir / fechar / sangria / suprimento */
 export const POST = handler(async (req) => {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("cash.operate");
   const body = cashActionSchema.parse(await req.json());
 
   if (body.action === "open") {

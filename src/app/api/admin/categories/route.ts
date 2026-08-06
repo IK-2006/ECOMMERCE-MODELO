@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { handler, ApiError } from "@/lib/api-helpers";
-import { requireAdmin } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { categorySchema } from "@/lib/validations";
 import { slugify } from "@/lib/utils";
 import { audit } from "@/lib/audit";
 import { getClientIp } from "@/lib/rate-limit";
 
 export const POST = handler(async (req) => {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("products.write");
   const body = categorySchema.parse(await req.json());
 
   const slug = body.slug || slugify(body.name);

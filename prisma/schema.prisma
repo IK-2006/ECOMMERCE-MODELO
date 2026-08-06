@@ -30,7 +30,13 @@ model User {
   name          String
   email         String    @unique
   passwordHash  String? // null quando o cadastro veio de login social
-  role          String    @default("CUSTOMER") // CUSTOMER | ADMIN
+  // Papel de acesso. CUSTOMER = cliente da loja; os demais são equipe (staff)
+  // com acesso ao /admin conforme a matriz de permissões (src/lib/permissions.ts):
+  // ADMIN | GERENTE | CAIXA | ESTOQUISTA | FINANCEIRO | CUSTOMER
+  role          String    @default("CUSTOMER")
+  // Conta ativa. Desativar (active=false) bloqueia o acesso imediatamente,
+  // sem apagar o registro (preserva histórico/auditoria).
+  active        Boolean   @default(true)
   image         String?
   phone         String?
   cpf           String?
@@ -521,6 +527,118 @@ model FiscalInvoice {
 
   @@index([orderId])
   @@index([status])
+}
+
+// ------------------------------- Financeiro (ERP) --------------------
+// Fase 2: contas a pagar/receber, fluxo de caixa e DRE. Um único modelo
+// de lançamento (FinancialEntry) descreve a pagar, a receber e realizado
+// — cada relatório é apenas um filtro. Ver FASE-2-FINANCEIRO-DESIGN.md.
+
+// Onde o dinheiro fica (Caixa da loja, Banco, Mercado Pago).
+model FinancialAccount {
+  id        String           @id @default(cuid())
+  name      String
+  kind      String // CAIXA | BANCO | GATEWAY
+  active    Boolean          @default(true)
+  entries   FinancialEntry[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([kind])
+}
+
+// Plano de contas simplificado (categorias de receita/despesa) para o DRE.
+model FinancialCategory {
+  id      String           @id @default(cuid())
+  name    String
+  type    String // INCOME | EXPENSE
+  active  Boolean          @default(true)
+  entries FinancialEntry[]
+
+  @@unique([name, type])
+}
+
+// Lançamento financeiro (a pagar / a receber / realizado).
+model FinancialEntry {
+  id          String  @id @default(cuid())
+  direction   String // INCOME | EXPENSE
+  status      String  @default("PENDING") // PENDING | PAID | CANCELED
+  amountCents Int
+  description String
+
+  dueDate  DateTime? // vencimento (competência p/ DRE)
+  paidDate DateTime? // liquidação (regime de caixa p/ fluxo)
+
+  accountId  String?
+  account    FinancialAccount?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  categoryId String?
+  category   FinancialCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  // vínculos de origem (reaproveitam entidades existentes — sem duplicar dados)
+  orderId     String? // receita veio de um pedido
+  supplierId  String? // despesa é de um fornecedor
+  createdById String? // quem lançou (auditoria)
+
+  // idempotência do lançamento automático (ex.: "order:<id>:income")
+  sourceKey String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([direction, status])
+  @@index([dueDate])
+  @@index([paidDate])
+  @@index([orderId])
+}
+
+// ------------------------------- Compras (ERP) ----------------------
+// Fase 3: Ordem de Compra (rascunho → enviada → recebimento parcial/total).
+// O recebimento reaproveita createStockEntry (estoque + custo + conta a
+// pagar da Fase 2). Ver FASE-3-COMPRAS-DESIGN.md.
+
+model PurchaseOrder {
+  id          String              @id @default(cuid())
+  number      String              @unique // OC-2026-000123
+  supplierId  String? // fornecedor (nome resolvido por lookup — sem tocar em Supplier)
+  // RASCUNHO | ENVIADA | RECEBIDA_PARCIAL | RECEBIDA | CANCELADA
+  status      String              @default("RASCUNHO")
+  notes       String?
+  expectedAt  DateTime? // previsão de entrega
+  totalCents  Int                 @default(0) // soma esperada (Σ qtd × custo)
+  createdById String?
+  items       PurchaseOrderItem[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([status])
+  @@index([supplierId])
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  productId       String
+  variantId       String?
+  name            String // snapshot legível
+  quantity        Int // quantidade pedida
+  receivedQty     Int           @default(0) // recebido acumulado (parcial)
+  unitCostCents   Int // custo unitário esperado
+
+  @@index([purchaseOrderId])
+}
+
+// ------------------------------- CRM (ERP) --------------------------
+// Fase 5: anotações de CRM por cliente (tags/segmentação + notas), sem
+// tocar no modelo User (userId como chave lógica, resolvido por lookup).
+
+model CustomerProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  tags      String? // segmentação, separada por vírgula (ex.: "vip,atacado")
+  notes     String? // observações internas da equipe
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ------------------------------- Infra -------------------------------

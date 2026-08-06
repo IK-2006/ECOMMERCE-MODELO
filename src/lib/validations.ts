@@ -103,6 +103,7 @@ export const productSchema = z.object({
   sku: z.string().trim().max(60).optional().or(z.literal("")),
   brand: z.string().trim().max(80).optional().or(z.literal("")),
   stock: z.number().int().min(0).default(0),
+  minStock: z.number().int().min(0).nullable().optional(), // alerta de estoque mínimo
   active: z.boolean().default(true),
   featured: z.boolean().default(false),
   weightGrams: z.number().int().min(1).default(300),
@@ -183,6 +184,29 @@ export const cashActionSchema = z.discriminatedUnion("action", [
   }),
 ]);
 
+// Gestão de usuários (RBAC — Fase 1)
+// Papéis atribuíveis pela tela (staff). Atribuir ADMIN é permitido no schema,
+// mas a ROTA só deixa um ADMIN fazê-lo (impede escalonamento de privilégio).
+const assignableRole = z.enum(["ADMIN", "GERENTE", "CAIXA", "ESTOQUISTA", "FINANCEIRO"]);
+
+// Criação por convite: sem senha — o funcionário define a dele pelo link enviado.
+export const userCreateSchema = z.object({
+  name: z.string().trim().min(2, "Nome muito curto").max(120),
+  email: z.string().trim().toLowerCase().email("E-mail inválido").max(200),
+  role: assignableRole,
+});
+
+// Edição: nome, papel e/ou status (todos opcionais — atualização parcial).
+export const userUpdateSchema = z
+  .object({
+    name: z.string().trim().min(2, "Nome muito curto").max(120).optional(),
+    role: assignableRole.optional(),
+    active: z.boolean().optional(),
+  })
+  .refine((d) => d.name !== undefined || d.role !== undefined || d.active !== undefined, {
+    message: "Nada para atualizar",
+  });
+
 export const supplierSchema = z.object({
   name: z.string().trim().min(2, "Nome muito curto").max(120),
   cnpj: z.string().trim().max(20).optional().or(z.literal("")),
@@ -206,6 +230,30 @@ export const stockEntrySchema = z.object({
       })
     )
     .min(1, "Adicione ao menos um item"),
+});
+
+// Fiscal (Fase 6) — emissão de nota
+export const fiscalEmitSchema = z.object({
+  type: z.enum(["NFCE", "NFE"]),
+});
+
+// CRM (Fase 5) — tags/segmentação + notas do cliente
+export const customerProfileSchema = z.object({
+  tags: z.string().trim().max(200).optional().or(z.literal("")),
+  notes: z.string().trim().max(2000).optional().or(z.literal("")),
+});
+
+// Inventário / balanço (Fase 4) — define o estoque contado de vários itens
+export const inventorySchema = z.object({
+  counts: z
+    .array(
+      z.object({
+        productId: z.string().cuid(),
+        variantId: z.string().cuid().nullable().optional(),
+        countedStock: z.number().int().min(0).max(1_000_000),
+      })
+    )
+    .min(1, "Informe ao menos um item contado"),
 });
 
 export const categorySchema = z.object({
@@ -274,4 +322,79 @@ export const orderStatusUpdateSchema = z.object({
   ]),
   trackingCode: z.string().trim().max(60).optional().or(z.literal("")),
   note: z.string().trim().max(500).optional().or(z.literal("")),
+});
+
+// ------------------------------ Financeiro (Fase 2) ------------------------------
+
+export const financialAccountSchema = z.object({
+  name: z.string().trim().min(2, "Nome muito curto").max(80),
+  kind: z.enum(["CAIXA", "BANCO", "GATEWAY"]),
+  active: z.boolean().default(true),
+});
+
+export const financialCategorySchema = z.object({
+  name: z.string().trim().min(2, "Nome muito curto").max(80),
+  type: z.enum(["INCOME", "EXPENSE"]),
+  active: z.boolean().default(true),
+});
+
+// Lançamento manual (a pagar/receber ou já realizado).
+export const financialEntrySchema = z
+  .object({
+    direction: z.enum(["INCOME", "EXPENSE"]),
+    amountCents: z.number().int().min(1, "Informe um valor").max(1_000_000_000),
+    description: z.string().trim().min(2, "Descreva o lançamento").max(200),
+    categoryId: z.string().cuid().optional().or(z.literal("")),
+    supplierId: z.string().cuid().optional().or(z.literal("")),
+    accountId: z.string().cuid().optional().or(z.literal("")),
+    dueDate: z.coerce.date().nullable().optional(),
+    status: z.enum(["PENDING", "PAID"]).default("PENDING"),
+    paidDate: z.coerce.date().nullable().optional(),
+  })
+  .refine((d) => d.status !== "PAID" || !!d.accountId, {
+    message: "Informe a conta que recebeu/pagou o valor",
+    path: ["accountId"],
+  });
+
+// Liquidar um lançamento pendente.
+export const financialSettleSchema = z.object({
+  accountId: z.string().cuid(),
+  paidDate: z.coerce.date().nullable().optional(),
+});
+
+// ------------------------------ Compras (Fase 3) ------------------------------
+
+export const purchaseOrderSchema = z.object({
+  supplierId: z.string().cuid().optional().or(z.literal("")),
+  notes: z.string().trim().max(500).optional().or(z.literal("")),
+  expectedAt: z.coerce.date().nullable().optional(),
+  items: z
+    .array(
+      z.object({
+        productId: z.string().cuid(),
+        variantId: z.string().cuid().nullable().optional(),
+        name: z.string().trim().min(1).max(200),
+        quantity: z.number().int().min(1).max(1_000_000),
+        unitCostCents: z.number().int().min(0).max(100_000_000),
+      })
+    )
+    .min(1, "Adicione ao menos um item"),
+});
+
+// Ação sobre a OC (enviar / cancelar).
+export const purchaseActionSchema = z.object({
+  action: z.enum(["send", "cancel"]),
+});
+
+// Recebimento (parcial ou total).
+export const purchaseReceiveSchema = z.object({
+  lines: z
+    .array(
+      z.object({
+        itemId: z.string().cuid(),
+        qty: z.number().int().min(1).max(1_000_000),
+        unitCostCents: z.number().int().min(0).max(100_000_000).nullable().optional(),
+      })
+    )
+    .min(1, "Informe ao menos um item recebido"),
 });

@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requirePagePermission } from "@/lib/page-guard";
+import { roleHasPermission } from "@/lib/permissions";
+import { CustomerCrmPanel } from "@/components/admin/CustomerCrmPanel";
 import { Badge } from "@/components/ui/Badge";
 import {
   formatCurrency,
@@ -18,21 +21,28 @@ export default async function AdminCustomerDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const actor = await requirePagePermission("customers.read");
   const { id } = await params;
-  const customer = await prisma.user.findUnique({
-    where: { id },
-    include: {
-      orders: { orderBy: { createdAt: "desc" }, include: { items: true } },
-      addresses: true,
-      reviews: { include: { product: { select: { name: true, slug: true } } } },
-    },
-  });
+  const [customer, profile] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id },
+      include: {
+        orders: { orderBy: { createdAt: "desc" }, include: { items: true } },
+        addresses: true,
+        reviews: { include: { product: { select: { name: true, slug: true } } } },
+      },
+    }),
+    prisma.customerProfile.findUnique({ where: { userId: id } }),
+  ]);
   if (!customer) notFound();
 
   const paidOrders = customer.orders.filter((o) =>
     ["PAGO", "EM_SEPARACAO", "ENVIADO", "ENTREGUE"].includes(o.status)
   );
   const totalSpent = paidOrders.reduce((s, o) => s + o.totalCents, 0);
+  const avgTicket = paidOrders.length > 0 ? Math.round(totalSpent / paidOrders.length) : 0;
+  const lastOrder = customer.orders[0]?.createdAt ?? null;
+  const canEditCrm = roleHasPermission(actor.role, "customers.write");
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -50,7 +60,7 @@ export default async function AdminCustomerDetailPage({
         {customer.phone && ` · ${customer.phone}`} · cliente desde {formatDate(customer.createdAt)}
       </p>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-3">
+      <div className="mt-6 grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <div className="rounded-none border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <p className="text-xs uppercase tracking-wide text-zinc-400">Pedidos</p>
           <p className="mt-1 text-2xl font-bold">{customer.orders.length}</p>
@@ -60,9 +70,26 @@ export default async function AdminCustomerDetailPage({
           <p className="mt-1 text-2xl font-bold">{formatCurrency(totalSpent)}</p>
         </div>
         <div className="rounded-none border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+          <p className="text-xs uppercase tracking-wide text-zinc-400">Ticket médio</p>
+          <p className="mt-1 text-2xl font-bold">{formatCurrency(avgTicket)}</p>
+        </div>
+        <div className="rounded-none border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+          <p className="text-xs uppercase tracking-wide text-zinc-400">Última compra</p>
+          <p className="mt-1 text-lg font-bold">{lastOrder ? formatDate(lastOrder) : "—"}</p>
+        </div>
+        <div className="rounded-none border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <p className="text-xs uppercase tracking-wide text-zinc-400">Avaliações</p>
           <p className="mt-1 text-2xl font-bold">{customer.reviews.length}</p>
         </div>
+      </div>
+
+      <div className="mt-6">
+        <CustomerCrmPanel
+          userId={customer.id}
+          canEdit={canEditCrm}
+          initialTags={profile?.tags ?? ""}
+          initialNotes={profile?.notes ?? ""}
+        />
       </div>
 
       <h2 className="mt-8 font-semibold">Pedidos</h2>

@@ -39,6 +39,7 @@ export interface ProductFormData {
   sku: string;
   brand: string;
   stock: number;
+  minStock: number;
   active: boolean;
   featured: boolean;
   weightGrams: number;
@@ -73,6 +74,7 @@ export function ProductForm({
       sku: "",
       brand: "",
       stock: 0,
+      minStock: 0,
       active: true,
       featured: false,
       weightGrams: 300,
@@ -139,6 +141,7 @@ export function ProductForm({
         sku: form.sku,
         brand: form.brand,
         stock: Number(form.stock) || 0,
+        minStock: Number(form.minStock) || 0,
         active: form.active,
         featured: form.featured,
         weightGrams: Number(form.weightGrams) || 300,
@@ -270,6 +273,14 @@ export function ProductForm({
             value={form.stock}
             onChange={(e) => set("stock", Number(e.target.value))}
             hint="Ignorado quando há variações"
+          />
+          <Input
+            label="Estoque mínimo"
+            type="number"
+            min={0}
+            value={form.minStock}
+            onChange={(e) => set("minStock", Number(e.target.value))}
+            hint="Dispara alerta de reposição quando o estoque atinge esse nível"
           />
         </div>
         <div className="mt-4 flex flex-wrap gap-6">

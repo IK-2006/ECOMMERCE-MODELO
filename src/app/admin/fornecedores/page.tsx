@@ -1,10 +1,12 @@
 import { prisma } from "@/lib/prisma";
+import { requirePagePermission } from "@/lib/page-guard";
 import { SupplierManager } from "@/components/admin/SupplierManager";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Fornecedores" };
 
 export default async function SuppliersPage() {
+  await requirePagePermission("suppliers.write");
   const suppliers = await prisma.supplier.findMany({
     orderBy: [{ active: "desc" }, { name: "asc" }],
     include: { _count: { select: { products: true } } },

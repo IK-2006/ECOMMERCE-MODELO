@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { handler } from "@/lib/api-helpers";
-import { requireAdmin } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { storeSaleSchema } from "@/lib/validations";
 import { createStoreSale } from "@/services/store-sale";
 import { audit } from "@/lib/audit";
@@ -8,7 +8,7 @@ import { getClientIp } from "@/lib/rate-limit";
 
 /** POST /api/admin/pdv — registra uma venda no balcão (já paga) */
 export const POST = handler(async (req) => {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("pos.operate");
   const body = storeSaleSchema.parse(await req.json());
 
   const order = await createStoreSale({

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { handler, ApiError } from "@/lib/api-helpers";
-import { requireAdmin } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { orderStatusUpdateSchema } from "@/lib/validations";
 import { updateOrderStatus } from "@/services/orders";
 import { audit } from "@/lib/audit";
@@ -9,7 +9,7 @@ import { getClientIp } from "@/lib/rate-limit";
 
 /** PATCH /api/admin/orders/[id]/status — atualiza status + rastreio */
 export const PATCH = handler(async (req, ctx: { params: Promise<{ id: string }> }) => {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("orders.write");
   const { id } = await ctx.params;
   const body = orderStatusUpdateSchema.parse(await req.json());
 

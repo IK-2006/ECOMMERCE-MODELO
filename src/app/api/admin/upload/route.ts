@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { handler, ApiError } from "@/lib/api-helpers";
-import { requireAdmin } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { saveImage, UploadError } from "@/services/storage";
 
 /** POST /api/admin/upload — multipart com campo "file"; retorna { url } */
 export const POST = handler(async (req) => {
-  await requireAdmin();
+  await requirePermission("products.write");
 
   const formData = await req.formData().catch(() => null);
   const file = formData?.get("file");

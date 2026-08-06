@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requirePagePermission } from "@/lib/page-guard";
 import { Badge } from "@/components/ui/Badge";
 import { OrderStatusForm } from "@/components/admin/OrderStatusForm";
 import { ShippingLabelPanel } from "@/components/admin/ShippingLabelPanel";
+import { FiscalPanel } from "@/components/admin/FiscalPanel";
+import { roleHasPermission } from "@/lib/permissions";
+import { isFiscalConfigured } from "@/lib/fiscal-config";
 import {
   formatCurrency,
   formatCep,
@@ -19,6 +23,7 @@ export default async function AdminOrderDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const actor = await requirePagePermission("orders.read");
   const { id } = await params;
   const order = await prisma.order.findUnique({
     where: { id },
@@ -26,9 +31,12 @@ export default async function AdminOrderDetailPage({
       user: true,
       items: true,
       statusHistory: { orderBy: { createdAt: "desc" } },
+      fiscalInvoices: { orderBy: { createdAt: "desc" } },
     },
   });
   if (!order) notFound();
+
+  const canEmitFiscal = roleHasPermission(actor.role, "fiscal.manage");
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -139,6 +147,23 @@ export default async function AdminOrderDetailPage({
             trackingCode={order.trackingCode}
             postedAt={order.shippingPostedAt ? order.shippingPostedAt.toISOString() : null}
             deliveredAt={order.shippingDeliveredAt ? order.shippingDeliveredAt.toISOString() : null}
+          />
+
+          {/* fiscal (NFC-e / NF-e) */}
+          <FiscalPanel
+            orderId={order.id}
+            invoices={order.fiscalInvoices.map((inv) => ({
+              id: inv.id,
+              type: inv.type,
+              status: inv.status,
+              number: inv.number,
+              accessKey: inv.accessKey,
+              danfeUrl: inv.danfeUrl,
+              xmlUrl: inv.xmlUrl,
+              error: inv.error,
+            }))}
+            isConfigured={isFiscalConfigured()}
+            canEmit={canEmitFiscal}
           />
 
           {/* cliente */}

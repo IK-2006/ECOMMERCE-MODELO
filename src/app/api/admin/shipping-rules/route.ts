@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { handler } from "@/lib/api-helpers";
-import { requireAdmin } from "@/lib/session";
+import { requirePermission } from "@/lib/session";
 import { shippingRuleSchema } from "@/lib/validations";
 import { audit } from "@/lib/audit";
 import { getClientIp } from "@/lib/rate-limit";
 
 export const POST = handler(async (req) => {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("shipping.manage");
   const body = shippingRuleSchema.parse(await req.json());
 
   const rule = await prisma.shippingRule.create({

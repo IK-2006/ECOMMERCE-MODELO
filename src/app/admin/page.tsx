@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { requirePagePermission } from "@/lib/page-guard";
+import { lowStockItems } from "@/services/stock";
 import { formatCurrency, ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
 import { RevenueChart } from "@/components/admin/RevenueChart";
@@ -9,6 +11,7 @@ export const dynamic = "force-dynamic";
 const PAID_STATUSES = ["PAGO", "EM_SEPARACAO", "ENVIADO", "ENTREGUE"];
 
 export default async function AdminDashboard() {
+  await requirePagePermission("dashboard.view");
   const now = new Date();
   const start30 = new Date(now.getTime() - 30 * 864e5);
   const prev30 = new Date(now.getTime() - 60 * 864e5);
@@ -24,7 +27,7 @@ export default async function AdminDashboard() {
         select: { totalCents: true },
       }),
       prisma.order.count({ where: { status: "AGUARDANDO_PAGAMENTO" } }),
-      prisma.product.count({ where: { active: true, stock: { lte: 5 }, variants: { none: {} } } }),
+      lowStockItems(),
       prisma.order.findMany({
         orderBy: { createdAt: "desc" },
         take: 8,
@@ -99,10 +102,10 @@ export default async function AdminDashboard() {
         ))}
       </div>
 
-      {lowStock > 0 && (
+      {lowStock.length > 0 && (
         <p className="mt-4 rounded-none border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
-          {lowStock} produto{lowStock > 1 ? "s" : ""} com estoque baixo (≤ 5 unidades).{" "}
-          <Link href="/admin/produtos" className="font-medium underline">Ver produtos</Link>
+          {lowStock.length} item{lowStock.length > 1 ? "s" : ""} no estoque mínimo ou abaixo.{" "}
+          <Link href="/admin/estoque" className="font-medium underline">Ver estoque</Link>
         </p>
       )}
 

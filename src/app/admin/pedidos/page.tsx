@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { requirePagePermission } from "@/lib/page-guard";
 import { Badge } from "@/components/ui/Badge";
 import {
   formatCurrency,
@@ -18,6 +19,7 @@ export default async function AdminOrdersPage({
 }: {
   searchParams: Promise<{ status?: string; q?: string }>;
 }) {
+  await requirePagePermission("orders.read");
   const { status, q } = await searchParams;
 
   const where: Prisma.OrderWhereInput = {

@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/prisma";
+import { requirePagePermission } from "@/lib/page-guard";
 import { ProductForm } from "@/components/admin/ProductForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewProductPage() {
+  await requirePagePermission("products.write");
   const categories = await prisma.category.findMany({
     orderBy: { position: "asc" },
     select: { id: true, name: true },

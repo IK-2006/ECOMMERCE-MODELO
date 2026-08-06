@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { requirePagePermission } from "@/lib/page-guard";
 import { formatCurrency, cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -12,6 +13,7 @@ export default async function AdminProductsPage({
 }: {
   searchParams: Promise<{ q?: string; ordenar?: string }>;
 }) {
+  await requirePagePermission("products.read");
   const { q, ordenar } = await searchParams;
 
   const orderBy: Prisma.ProductOrderByWithRelationInput =
