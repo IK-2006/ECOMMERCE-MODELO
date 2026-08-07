@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
@@ -123,6 +124,7 @@ interface SaleResult {
 }
 
 export function PdvTerminal({ products, sessionId }: { products: PdvProduct[]; sessionId: string }) {
+  const router = useRouter();
   const { toast } = useToast();
   const [query, setQuery] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -272,6 +274,9 @@ export function PdvTerminal({ products, sessionId }: { products: PdvProduct[]; s
       if (!res.ok) throw new Error(data.error ?? "Erro ao registrar a venda");
       setResult(data as SaleResult);
       toast("Venda registrada!", "success");
+      // revalida os dados do servidor: atualiza o resumo do caixa (vendas/saldo)
+      // e o estoque do catálogo sem exigir recarregar a página.
+      router.refresh();
     } catch (err) {
       toast(err instanceof Error ? err.message : "Erro ao registrar a venda", "error");
     } finally {
