@@ -11,10 +11,10 @@ export const dynamic = "force-dynamic";
 export default async function AdminProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; ordenar?: string }>;
+  searchParams: Promise<{ q?: string; ordenar?: string; categoria?: string }>;
 }) {
   await requirePagePermission("products.read");
-  const { q, ordenar } = await searchParams;
+  const { q, ordenar, categoria } = await searchParams;
 
   const orderBy: Prisma.ProductOrderByWithRelationInput =
     ordenar === "menor-preco"
@@ -25,33 +25,50 @@ export default async function AdminProductsPage({
           ? { name: "asc" }
           : ordenar === "estoque"
             ? { stock: "asc" }
-            : { createdAt: "desc" };
+            : ordenar === "categoria"
+              ? { category: { name: "asc" } }
+              : { createdAt: "desc" };
 
-  const products = await prisma.product.findMany({
-    where: q
-      ? { OR: [{ name: { contains: q } }, { sku: { contains: q } }, { brand: { contains: q } }] }
-      : undefined,
-    include: {
-      category: true,
-      images: { orderBy: { position: "asc" }, take: 1 },
-      variants: { where: { active: true } },
-    },
-    orderBy,
-    take: 200,
-  });
+  // filtros combináveis: busca (q) E categoria (slug)
+  const where: Prisma.ProductWhereInput = {};
+  if (q) where.OR = [{ name: { contains: q } }, { sku: { contains: q } }, { brand: { contains: q } }];
+  if (categoria) where.category = { slug: categoria };
+
+  const [products, categories] = await Promise.all([
+    prisma.product.findMany({
+      where,
+      include: {
+        category: true,
+        images: { orderBy: { position: "asc" }, take: 1 },
+        variants: { where: { active: true } },
+      },
+      orderBy,
+      take: 200,
+    }),
+    prisma.category.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, slug: true, _count: { select: { products: true } } },
+    }),
+  ]);
 
   const sortOptions: [string, string][] = [
     ["recentes", "Mais recentes"],
     ["menor-preco", "Menor preço"],
     ["maior-preco", "Maior preço"],
     ["nome", "Nome (A–Z)"],
+    ["categoria", "Categoria (A–Z)"],
     ["estoque", "Menor estoque"],
   ];
   const currentSort = ordenar ?? "recentes";
-  const sortHref = (key: string) => {
+
+  // monta a URL preservando os demais filtros; passe null para limpar um deles
+  const buildHref = (over: { ordenar?: string | null; categoria?: string | null }) => {
     const p = new URLSearchParams();
+    const ov = over.ordenar !== undefined ? over.ordenar : ordenar ?? null;
+    const cv = over.categoria !== undefined ? over.categoria : categoria ?? null;
     if (q) p.set("q", q);
-    if (key !== "recentes") p.set("ordenar", key);
+    if (ov && ov !== "recentes") p.set("ordenar", ov);
+    if (cv) p.set("categoria", cv);
     const qs = p.toString();
     return qs ? `/admin/produtos?${qs}` : "/admin/produtos";
   };
@@ -62,6 +79,9 @@ export default async function AdminProductsPage({
         <h1 className="font-serif text-3xl font-medium tracking-tight">Produtos</h1>
         <div className="flex items-center gap-3">
           <form method="GET">
+            {/* preserva ordenação e categoria ao buscar */}
+            {ordenar && ordenar !== "recentes" && <input type="hidden" name="ordenar" value={ordenar} />}
+            {categoria && <input type="hidden" name="categoria" value={categoria} />}
             <input
               name="q"
               defaultValue={q}
@@ -75,13 +95,44 @@ export default async function AdminProductsPage({
         </div>
       </div>
 
+      {/* filtro por categoria */}
+      <div className="mt-5 flex flex-wrap items-center gap-2 text-xs">
+        <span className="mr-1 uppercase tracking-wide text-zinc-400">Categoria:</span>
+        <Link
+          href={buildHref({ categoria: null })}
+          className={cn(
+            "border px-2.5 py-1 transition-colors",
+            !categoria
+              ? "border-accent bg-accent-soft font-medium text-accent dark:bg-accent-soft-dark"
+              : "border-zinc-200 text-zinc-500 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-500"
+          )}
+        >
+          Todas
+        </Link>
+        {categories.map((c) => (
+          <Link
+            key={c.id}
+            href={buildHref({ categoria: c.slug })}
+            className={cn(
+              "border px-2.5 py-1 transition-colors",
+              categoria === c.slug
+                ? "border-accent bg-accent-soft font-medium text-accent dark:bg-accent-soft-dark"
+                : "border-zinc-200 text-zinc-500 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-500"
+            )}
+          >
+            {c.name}
+            <span className="ml-1.5 tabular-nums text-zinc-400">{c._count.products}</span>
+          </Link>
+        ))}
+      </div>
+
       {/* ordenação */}
-      <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
         <span className="uppercase tracking-wide text-zinc-400">Ordenar:</span>
         {sortOptions.map(([key, label]) => (
           <Link
             key={key}
-            href={sortHref(key)}
+            href={buildHref({ ordenar: key })}
             className={cn(
               "underline-offset-4 transition-colors",
               currentSort === key
