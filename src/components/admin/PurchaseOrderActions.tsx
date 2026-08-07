@@ -54,7 +54,7 @@ export function PurchaseOrderActions({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast(action === "send" ? "Ordem enviada ao fornecedor!" : "Ordem cancelada", "info");
+      toast(action === "send" ? "Ordem marcada como enviada." : "Ordem cancelada", "info");
       router.refresh();
     } catch (err) {
       toast(err instanceof Error ? err.message : "Erro", "error");
@@ -96,7 +96,7 @@ export function PurchaseOrderActions({
 
   return (
     <div className="flex flex-wrap gap-2">
-      {canSend && <Button onClick={() => act("send")} loading={busy}>Enviar ao fornecedor</Button>}
+      {canSend && <Button onClick={() => act("send")} loading={busy}>Marcar como enviada</Button>}
       {canReceive && <Button onClick={() => setReceiveOpen(true)} disabled={busy}>Receber mercadoria</Button>}
       {canCancel && <Button variant="ghost" onClick={() => act("cancel")} disabled={busy}>Cancelar OC</Button>}
 
