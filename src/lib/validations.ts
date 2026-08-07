@@ -324,6 +324,44 @@ export const orderStatusUpdateSchema = z.object({
   note: z.string().trim().max(500).optional().or(z.literal("")),
 });
 
+// ------------------------------ Financeiro (Fase 2) ------------------------------
+
+export const financialAccountSchema = z.object({
+  name: z.string().trim().min(2, "Nome muito curto").max(80),
+  kind: z.enum(["CAIXA", "BANCO", "GATEWAY"]),
+  active: z.boolean().default(true),
+});
+
+export const financialCategorySchema = z.object({
+  name: z.string().trim().min(2, "Nome muito curto").max(80),
+  type: z.enum(["INCOME", "EXPENSE"]),
+  active: z.boolean().default(true),
+});
+
+// Lançamento manual (a pagar/receber ou já realizado).
+export const financialEntrySchema = z
+  .object({
+    direction: z.enum(["INCOME", "EXPENSE"]),
+    amountCents: z.number().int().min(1, "Informe um valor").max(1_000_000_000),
+    description: z.string().trim().min(2, "Descreva o lançamento").max(200),
+    categoryId: z.string().cuid().optional().or(z.literal("")),
+    supplierId: z.string().cuid().optional().or(z.literal("")),
+    accountId: z.string().cuid().optional().or(z.literal("")),
+    dueDate: z.coerce.date().nullable().optional(),
+    status: z.enum(["PENDING", "PAID"]).default("PENDING"),
+    paidDate: z.coerce.date().nullable().optional(),
+  })
+  .refine((d) => d.status !== "PAID" || !!d.accountId, {
+    message: "Informe a conta que recebeu/pagou o valor",
+    path: ["accountId"],
+  });
+
+// Liquidar um lançamento pendente.
+export const financialSettleSchema = z.object({
+  accountId: z.string().cuid(),
+  paidDate: z.coerce.date().nullable().optional(),
+});
+
 // ------------------------------ Compras (Fase 3) ------------------------------
 
 export const purchaseOrderSchema = z.object({

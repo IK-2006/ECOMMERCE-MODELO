@@ -529,6 +529,68 @@ model FiscalInvoice {
   @@index([status])
 }
 
+// ------------------------------- Financeiro (ERP) --------------------
+// Fase 2: contas a pagar/receber, fluxo de caixa e DRE. Um único modelo
+// de lançamento (FinancialEntry) descreve a pagar, a receber e realizado
+// — cada relatório é apenas um filtro. Ver FASE-2-FINANCEIRO-DESIGN.md.
+
+// Onde o dinheiro fica (Caixa da loja, Banco, Mercado Pago).
+model FinancialAccount {
+  id        String           @id @default(cuid())
+  name      String
+  kind      String // CAIXA | BANCO | GATEWAY
+  active    Boolean          @default(true)
+  entries   FinancialEntry[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([kind])
+}
+
+// Plano de contas simplificado (categorias de receita/despesa) para o DRE.
+model FinancialCategory {
+  id      String           @id @default(cuid())
+  name    String
+  type    String // INCOME | EXPENSE
+  active  Boolean          @default(true)
+  entries FinancialEntry[]
+
+  @@unique([name, type])
+}
+
+// Lançamento financeiro (a pagar / a receber / realizado).
+model FinancialEntry {
+  id          String  @id @default(cuid())
+  direction   String // INCOME | EXPENSE
+  status      String  @default("PENDING") // PENDING | PAID | CANCELED
+  amountCents Int
+  description String
+
+  dueDate  DateTime? // vencimento (competência p/ DRE)
+  paidDate DateTime? // liquidação (regime de caixa p/ fluxo)
+
+  accountId  String?
+  account    FinancialAccount?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  categoryId String?
+  category   FinancialCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  // vínculos de origem (reaproveitam entidades existentes — sem duplicar dados)
+  orderId     String? // receita veio de um pedido
+  supplierId  String? // despesa é de um fornecedor
+  createdById String? // quem lançou (auditoria)
+
+  // idempotência do lançamento automático (ex.: "order:<id>:income")
+  sourceKey String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([direction, status])
+  @@index([dueDate])
+  @@index([paidDate])
+  @@index([orderId])
+}
+
 // ------------------------------- Compras (ERP) ----------------------
 // Fase 3: Ordem de Compra (rascunho → enviada → recebimento parcial/total).
 // O recebimento reaproveita createStockEntry (estoque + custo + conta a

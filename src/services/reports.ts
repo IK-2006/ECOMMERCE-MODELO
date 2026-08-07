@@ -79,3 +79,30 @@ export async function stockValuationCsv(): Promise<string> {
   }
   return CSV_BOM + [header, ...rows].join("\n");
 }
+
+/** CSV dos lançamentos financeiros de um período. */
+export async function financeEntriesCsv(params: { from: Date; to: Date }): Promise<string> {
+  const entries = await prisma.financialEntry.findMany({
+    where: { createdAt: { gte: params.from, lte: params.to } },
+    orderBy: { createdAt: "asc" },
+    include: { account: { select: { name: true } }, category: { select: { name: true } } },
+  });
+
+  const dirLabel: Record<string, string> = { INCOME: "Entrada", EXPENSE: "Saída" };
+  const stLabel: Record<string, string> = { PENDING: "Pendente", PAID: "Realizado", CANCELED: "Cancelado" };
+  const header = ["Data", "Tipo", "Status", "Descrição", "Categoria", "Conta", "Valor (R$)", "Vencimento", "Pago em"].join(";");
+  const rows = entries.map((e) =>
+    [
+      e.createdAt.toLocaleDateString("pt-BR"),
+      dirLabel[e.direction] ?? e.direction,
+      stLabel[e.status] ?? e.status,
+      csvEsc(e.description),
+      csvEsc(e.category?.name ?? ""),
+      csvEsc(e.account?.name ?? ""),
+      money(e.amountCents),
+      e.dueDate ? e.dueDate.toLocaleDateString("pt-BR") : "",
+      e.paidDate ? e.paidDate.toLocaleDateString("pt-BR") : "",
+    ].join(";")
+  );
+  return CSV_BOM + [header, ...rows].join("\n");
+}
