@@ -67,6 +67,23 @@ export function FiscalPanel({
     }
   };
 
+  // consulta o provedor e atualiza notas em processamento (autorização assíncrona)
+  const refreshStatus = async () => {
+    setBusy("refresh");
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}/fiscal`, { method: "PATCH" });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast("Status atualizado.");
+      router.refresh();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Erro ao consultar", "error");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const hasProcessing = invoices.some((i) => i.status === "PROCESSANDO");
+
   return (
     <div className="rounded-none border border-zinc-200 bg-white p-5 text-sm dark:border-zinc-800 dark:bg-zinc-900">
       <h2 className="font-semibold">Fiscal</h2>
@@ -102,9 +119,14 @@ export function FiscalPanel({
       )}
 
       {canEmit && (
-        <div className="mt-3 flex gap-2">
+        <div className="mt-3 flex flex-wrap gap-2">
           <Button size="sm" variant="outline" loading={busy === "NFCE"} onClick={() => emit("NFCE")}>Emitir NFC-e</Button>
           <Button size="sm" variant="outline" loading={busy === "NFE"} onClick={() => emit("NFE")}>Emitir NF-e</Button>
+          {hasProcessing && (
+            <Button size="sm" variant="ghost" loading={busy === "refresh"} onClick={refreshStatus}>
+              Atualizar status
+            </Button>
+          )}
         </div>
       )}
     </div>
