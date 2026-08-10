@@ -40,21 +40,55 @@ const ICONS: Record<string, string> = {
 
 // Cada item declara a permissão mínima para aparecer. O menu é filtrado
 // pelo papel do usuário (ver src/lib/permissions.ts).
-const links: { href: string; label: string; icon: string; perm: Permission }[] = [
-  { href: "/admin", label: "Visão Geral", icon: "dashboard", perm: "dashboard.view" },
-  { href: "/admin/pdv", label: "Venda em Loja", icon: "pdv", perm: "pos.operate" },
-  { href: "/admin/pedidos", label: "Pedidos", icon: "pedidos", perm: "orders.read" },
-  { href: "/admin/reembolsos", label: "Reembolsos", icon: "reembolsos", perm: "refunds.manage" },
-  { href: "/admin/produtos", label: "Produtos", icon: "produtos", perm: "products.read" },
-  { href: "/admin/categorias", label: "Categorias", icon: "categorias", perm: "products.write" },
-  { href: "/admin/estoque", label: "Estoque", icon: "estoque", perm: "stock.read" },
-  { href: "/admin/fornecedores", label: "Fornecedores", icon: "fornecedores", perm: "suppliers.write" },
-  { href: "/admin/compras", label: "Compras", icon: "compras", perm: "purchases.read" },
-  { href: "/admin/financeiro", label: "Financeiro", icon: "financeiro", perm: "finance.read" },
-  { href: "/admin/clientes", label: "Clientes", icon: "clientes", perm: "customers.read" },
-  { href: "/admin/cupons", label: "Cupons", icon: "cupons", perm: "coupons.write" },
-  { href: "/admin/frete", label: "Frete", icon: "frete", perm: "shipping.manage" },
-  { href: "/admin/usuarios", label: "Usuários", icon: "usuarios", perm: "users.manage" },
+type NavLink = { href: string; label: string; icon: string; perm: Permission };
+
+// Seções ordenadas por importância no dia a dia da loja (e itens idem):
+// operação diária primeiro; configurações por último.
+const navGroups: { title: string; links: NavLink[] }[] = [
+  {
+    title: "Operação",
+    links: [
+      { href: "/admin", label: "Visão Geral", icon: "dashboard", perm: "dashboard.view" },
+      { href: "/admin/pedidos", label: "Pedidos", icon: "pedidos", perm: "orders.read" },
+      { href: "/admin/pdv", label: "Venda em Loja", icon: "pdv", perm: "pos.operate" },
+    ],
+  },
+  {
+    title: "Catálogo & Estoque",
+    links: [
+      { href: "/admin/produtos", label: "Produtos", icon: "produtos", perm: "products.read" },
+      { href: "/admin/categorias", label: "Categorias", icon: "categorias", perm: "products.write" },
+      { href: "/admin/estoque", label: "Estoque", icon: "estoque", perm: "stock.read" },
+    ],
+  },
+  {
+    title: "Compras",
+    links: [
+      { href: "/admin/compras", label: "Compras", icon: "compras", perm: "purchases.read" },
+      { href: "/admin/fornecedores", label: "Fornecedores", icon: "fornecedores", perm: "suppliers.write" },
+    ],
+  },
+  {
+    title: "Financeiro",
+    links: [
+      { href: "/admin/financeiro", label: "Financeiro", icon: "financeiro", perm: "finance.read" },
+      { href: "/admin/reembolsos", label: "Reembolsos", icon: "reembolsos", perm: "refunds.manage" },
+    ],
+  },
+  {
+    title: "Clientes",
+    links: [
+      { href: "/admin/clientes", label: "Clientes", icon: "clientes", perm: "customers.read" },
+      { href: "/admin/cupons", label: "Cupons", icon: "cupons", perm: "coupons.write" },
+    ],
+  },
+  {
+    title: "Configurações",
+    links: [
+      { href: "/admin/frete", label: "Frete", icon: "frete", perm: "shipping.manage" },
+      { href: "/admin/usuarios", label: "Usuários", icon: "usuarios", perm: "users.manage" },
+    ],
+  },
 ];
 
 function Icon({ path }: { path: string }) {
@@ -94,8 +128,10 @@ export function AdminSidebar({ userName, role }: { userName: string; role: strin
   const { theme, toggle } = useTheme();
   const [open, setOpen] = useState(false);
 
-  // só mostra os itens que o papel pode acessar
-  const visibleLinks = links.filter((link) => roleHasPermission(role, link.perm));
+  // só mostra os itens que o papel pode acessar; some com grupos vazios
+  const visibleGroups = navGroups
+    .map((g) => ({ ...g, links: g.links.filter((link) => roleHasPermission(role, link.perm)) }))
+    .filter((g) => g.links.length > 0);
 
   const isActive = (href: string) =>
     href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
@@ -140,26 +176,33 @@ export function AdminSidebar({ userName, role }: { userName: string; role: strin
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-4">
-          {visibleLinks.map((link) => {
-            const active = isActive(link.href);
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 border-l-2 px-5 py-2.5 text-[11px] uppercase tracking-[0.14em] transition-colors",
-                  active
-                    ? "border-accent bg-accent-soft/60 font-medium text-accent dark:bg-accent-soft-dark/60"
-                    : "border-transparent text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
-                )}
-              >
-                <Icon path={ICONS[link.icon]} />
-                {link.label}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 overflow-y-auto py-3">
+          {visibleGroups.map((group) => (
+            <div key={group.title} className="mb-1.5">
+              <p className="px-5 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-300 dark:text-zinc-600">
+                {group.title}
+              </p>
+              {group.links.map((link) => {
+                const active = isActive(link.href);
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 border-l-2 px-5 py-2.5 text-[11px] uppercase tracking-[0.14em] transition-colors",
+                      active
+                        ? "border-accent bg-accent-soft/60 font-medium text-accent dark:bg-accent-soft-dark/60"
+                        : "border-transparent text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+                    )}
+                  >
+                    <Icon path={ICONS[link.icon]} />
+                    {link.label}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         <div className="border-t border-zinc-100 px-5 py-4 dark:border-zinc-900">
