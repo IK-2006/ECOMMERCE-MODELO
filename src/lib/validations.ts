@@ -103,6 +103,11 @@ export const productSchema = z.object({
   sku: z.string().trim().max(60).optional().or(z.literal("")),
   barcode: z.string().trim().max(60).optional().or(z.literal("")), // EAN/GTIN — leitura no PDV
   brand: z.string().trim().max(80).optional().or(z.literal("")),
+  // Fiscal (NF-e/NFC-e) — usados na emissão da nota
+  ncm: z.string().trim().max(10).optional().or(z.literal("")),
+  cest: z.string().trim().max(10).optional().or(z.literal("")),
+  origem: z.string().trim().max(1).optional().or(z.literal("")),
+  unidade: z.string().trim().max(6).optional().or(z.literal("")),
   stock: z.number().int().min(0).default(0),
   minStock: z.number().int().min(0).nullable().optional(), // alerta de estoque mínimo
   active: z.boolean().default(true),

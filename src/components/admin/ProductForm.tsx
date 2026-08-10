@@ -41,6 +41,10 @@ export interface ProductFormData {
   sku: string;
   barcode: string;
   brand: string;
+  ncm: string;
+  cest: string;
+  origem: string;
+  unidade: string;
   stock: number;
   minStock: number;
   active: boolean;
@@ -77,6 +81,10 @@ export function ProductForm({
       sku: "",
       barcode: "",
       brand: "",
+      ncm: "",
+      cest: "",
+      origem: "0",
+      unidade: "UN",
       stock: 0,
       minStock: 0,
       active: true,
@@ -145,6 +153,10 @@ export function ProductForm({
         sku: form.sku,
         barcode: form.barcode,
         brand: form.brand,
+        ncm: form.ncm,
+        cest: form.cest,
+        origem: form.origem,
+        unidade: form.unidade,
         stock: Number(form.stock) || 0,
         minStock: Number(form.minStock) || 0,
         active: form.active,
@@ -316,6 +328,48 @@ export function ProductForm({
             />
             Destaque na página inicial
           </label>
+        </div>
+      </section>
+
+      {/* fiscal */}
+      <section className="rounded-none border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+        <h2 className="mb-1 font-semibold">Fiscal (nota fiscal)</h2>
+        <p className="mb-4 text-xs text-zinc-400">
+          Usado na emissão de NFC-e/NF-e. Confirme o NCM e a origem com seu contador.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-4">
+          <Input
+            label="NCM"
+            value={form.ncm}
+            onChange={(e) => set("ncm", e.target.value.replace(/\D/g, ""))}
+            placeholder="Ex.: 61046200"
+            inputMode="numeric"
+            hint="8 dígitos"
+          />
+          <Input
+            label="CEST"
+            value={form.cest}
+            onChange={(e) => set("cest", e.target.value.replace(/\D/g, ""))}
+            placeholder="Opcional (ICMS-ST)"
+            inputMode="numeric"
+          />
+          <Select label="Origem" value={form.origem} onChange={(e) => set("origem", e.target.value)}>
+            <option value="0">0 - Nacional</option>
+            <option value="1">1 - Estrangeira (importação direta)</option>
+            <option value="2">2 - Estrangeira (mercado interno)</option>
+            <option value="3">3 - Nacional (import. &gt; 40%)</option>
+            <option value="4">4 - Nacional (processos produtivos)</option>
+            <option value="5">5 - Nacional (import. ≤ 40%)</option>
+            <option value="6">6 - Estrangeira (import. direta, s/ similar)</option>
+            <option value="7">7 - Estrangeira (mercado interno, s/ similar)</option>
+            <option value="8">8 - Nacional (import. &gt; 70%)</option>
+          </Select>
+          <Input
+            label="Unidade"
+            value={form.unidade}
+            onChange={(e) => set("unidade", e.target.value)}
+            placeholder="UN"
+          />
         </div>
       </section>
 
