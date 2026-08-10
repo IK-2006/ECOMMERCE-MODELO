@@ -21,6 +21,7 @@ interface VariantForm {
   size: string;
   color: string;
   sku: string;
+  barcode: string; // EAN/GTIN — leitura no PDV
   price: string; // em reais; vazio = usa preço do produto
   stock: number;
 }
@@ -38,6 +39,7 @@ export interface ProductFormData {
   price: string;
   compareAt: string;
   sku: string;
+  barcode: string;
   brand: string;
   stock: number;
   minStock: number;
@@ -73,6 +75,7 @@ export function ProductForm({
       price: "",
       compareAt: "",
       sku: "",
+      barcode: "",
       brand: "",
       stock: 0,
       minStock: 0,
@@ -140,6 +143,7 @@ export function ProductForm({
         priceCents,
         compareAtCents: form.compareAt ? toCents(form.compareAt) : null,
         sku: form.sku,
+        barcode: form.barcode,
         brand: form.brand,
         stock: Number(form.stock) || 0,
         minStock: Number(form.minStock) || 0,
@@ -157,6 +161,7 @@ export function ProductForm({
           size: v.size,
           color: v.color,
           sku: v.sku,
+          barcode: v.barcode,
           priceCents: v.price ? toCents(v.price) : null,
           stock: Number(v.stock) || 0,
         })),
@@ -235,6 +240,14 @@ export function ProductForm({
             onChange={(e) => set("sku", e.target.value)}
             placeholder="Gerado automaticamente"
             hint="Deixe em branco para gerar automático (ex.: GF-0001)."
+          />
+          <Input
+            label="Código de barras (EAN/GTIN)"
+            value={form.barcode}
+            onChange={(e) => set("barcode", e.target.value.replace(/\D/g, ""))}
+            placeholder="Escaneie ou digite o código"
+            inputMode="numeric"
+            hint="Usado para leitura no PDV (Venda em Loja). Para produtos com variações, cadastre o código em cada variação."
           />
           <Textarea
             label="Descrição *"
@@ -390,7 +403,7 @@ export function ProductForm({
                 ...f,
                 variants: [
                   ...f.variants,
-                  { name: "", size: "", color: "", sku: "", price: "", stock: 0 },
+                  { name: "", size: "", color: "", sku: "", barcode: "", price: "", stock: 0 },
                 ],
               }))
             }
@@ -406,7 +419,7 @@ export function ProductForm({
             {form.variants.map((v, i) => (
               <div
                 key={i}
-                className="grid gap-3 rounded-none border border-zinc-200 p-4 dark:border-zinc-700 sm:grid-cols-6"
+                className="grid gap-3 rounded-none border border-zinc-200 p-4 dark:border-zinc-700 sm:grid-cols-7"
               >
                 <Input
                   label="Tamanho"
@@ -437,6 +450,17 @@ export function ProductForm({
                     set("variants", variants);
                   }}
                   placeholder="Automático"
+                />
+                <Input
+                  label="Cód. barras"
+                  value={v.barcode}
+                  onChange={(e) => {
+                    const variants = [...form.variants];
+                    variants[i] = { ...v, barcode: e.target.value.replace(/\D/g, "") };
+                    set("variants", variants);
+                  }}
+                  placeholder="EAN/GTIN"
+                  inputMode="numeric"
                 />
                 <Input
                   label="Preço (R$)"

@@ -47,6 +47,7 @@ export const PATCH = handler(async (req, ctx: { params: Promise<{ id: string }> 
         color: v.color || null,
         // variação sem SKU herda do produto (GF-0001-P-PRETO)
         sku: v.sku?.trim() || buildVariantSku(sku, i, v.size, v.color),
+        barcode: v.barcode?.trim() || null,
         priceCents: v.priceCents ?? null,
         stock: v.stock,
         active: true,
@@ -67,6 +68,7 @@ export const PATCH = handler(async (req, ctx: { params: Promise<{ id: string }> 
         priceCents: body.priceCents,
         compareAtCents: body.compareAtCents ?? null,
         sku,
+        barcode: body.barcode?.trim() || null,
         brand: body.brand || null,
         stock: body.stock,
         minStock: body.minStock ?? null,

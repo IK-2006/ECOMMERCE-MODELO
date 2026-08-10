@@ -101,6 +101,7 @@ export const productSchema = z.object({
   priceCents: z.number().int().min(1, "Preço obrigatório"),
   compareAtCents: z.number().int().min(0).nullable().optional(),
   sku: z.string().trim().max(60).optional().or(z.literal("")),
+  barcode: z.string().trim().max(60).optional().or(z.literal("")), // EAN/GTIN — leitura no PDV
   brand: z.string().trim().max(80).optional().or(z.literal("")),
   stock: z.number().int().min(0).default(0),
   minStock: z.number().int().min(0).nullable().optional(), // alerta de estoque mínimo
@@ -122,6 +123,7 @@ export const productSchema = z.object({
         size: z.string().trim().max(30).optional().or(z.literal("")),
         color: z.string().trim().max(30).optional().or(z.literal("")),
         sku: z.string().trim().max(60).optional().or(z.literal("")),
+        barcode: z.string().trim().max(60).optional().or(z.literal("")), // EAN/GTIN da variação
         priceCents: z.number().int().min(1).nullable().optional(),
         stock: z.number().int().min(0).default(0),
       })
