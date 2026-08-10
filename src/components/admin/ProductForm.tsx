@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { useToast } from "@/components/providers/ToastProvider";
 import { slugify } from "@/lib/utils";
+import { filterMoneyInput } from "@/lib/masks";
 
 interface CategoryOption {
   id: string;
@@ -253,7 +254,7 @@ export function ProductForm({
           <Input
             label="Preço (R$) *"
             value={form.price}
-            onChange={(e) => set("price", e.target.value)}
+            onChange={(e) => set("price", filterMoneyInput(e.target.value))}
             placeholder="99,90"
             required
             inputMode="decimal"
@@ -261,7 +262,7 @@ export function ProductForm({
           <Input
             label="Preço &quot;de&quot; (R$)"
             value={form.compareAt}
-            onChange={(e) => set("compareAt", e.target.value)}
+            onChange={(e) => set("compareAt", filterMoneyInput(e.target.value))}
             placeholder="129,90"
             inputMode="decimal"
             hint="Preço riscado para mostrar desconto"
@@ -442,7 +443,7 @@ export function ProductForm({
                   value={v.price}
                   onChange={(e) => {
                     const variants = [...form.variants];
-                    variants[i] = { ...v, price: e.target.value };
+                    variants[i] = { ...v, price: filterMoneyInput(e.target.value) };
                     set("variants", variants);
                   }}
                   placeholder="herda"

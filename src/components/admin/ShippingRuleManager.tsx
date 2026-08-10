@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { useToast } from "@/components/providers/ToastProvider";
 import { formatCurrency, formatCep } from "@/lib/utils";
+import { filterMoneyInput, maskCep } from "@/lib/masks";
 
 interface RuleView {
   id: string;
@@ -211,15 +212,17 @@ export function ShippingRuleManager({ rules }: { rules: RuleView[] }) {
             <Input
               label="CEP inicial *"
               value={form.cepStart}
-              onChange={(e) => setForm({ ...form, cepStart: e.target.value })}
+              onChange={(e) => setForm({ ...form, cepStart: maskCep(e.target.value) })}
               placeholder="01000-000"
+              inputMode="numeric"
               required
             />
             <Input
               label="CEP final *"
               value={form.cepEnd}
-              onChange={(e) => setForm({ ...form, cepEnd: e.target.value })}
+              onChange={(e) => setForm({ ...form, cepEnd: maskCep(e.target.value) })}
               placeholder="39999-999"
+              inputMode="numeric"
               required
             />
           </div>
@@ -242,7 +245,7 @@ export function ShippingRuleManager({ rules }: { rules: RuleView[] }) {
           <Input
             label="Preço (R$) *"
             value={form.price}
-            onChange={(e) => setForm({ ...form, price: e.target.value })}
+            onChange={(e) => setForm({ ...form, price: filterMoneyInput(e.target.value) })}
             placeholder="19,90"
             required
             inputMode="decimal"

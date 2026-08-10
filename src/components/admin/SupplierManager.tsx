@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { useToast } from "@/components/providers/ToastProvider";
+import { maskCnpj, maskPhone } from "@/lib/masks";
 
 export interface SupplierView {
   id: string;
@@ -38,8 +39,8 @@ export function SupplierManager({ suppliers }: { suppliers: SupplierView[] }) {
     setEditingId(s.id);
     setForm({
       name: s.name,
-      cnpj: s.cnpj ?? "",
-      phone: s.phone ?? "",
+      cnpj: maskCnpj(s.cnpj ?? ""),
+      phone: maskPhone(s.phone ?? ""),
       email: s.email ?? "",
       notes: s.notes ?? "",
       active: s.active,
@@ -133,8 +134,8 @@ export function SupplierManager({ suppliers }: { suppliers: SupplierView[] }) {
         <form onSubmit={save} className="space-y-4">
           <Input label="Nome *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           <div className="grid grid-cols-2 gap-3">
-            <Input label="CNPJ" value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: e.target.value })} placeholder="00.000.000/0001-00" />
-            <Input label="Telefone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <Input label="CNPJ" value={form.cnpj} onChange={(e) => setForm({ ...form, cnpj: maskCnpj(e.target.value) })} placeholder="00.000.000/0001-00" inputMode="numeric" />
+            <Input label="Telefone" value={form.phone} onChange={(e) => setForm({ ...form, phone: maskPhone(e.target.value) })} placeholder="(11) 99999-9999" inputMode="tel" />
           </div>
           <Input label="E-mail" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <Input label="Observações" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />

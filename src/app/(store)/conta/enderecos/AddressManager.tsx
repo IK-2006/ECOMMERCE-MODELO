@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/providers/ToastProvider";
 import { formatCep, BR_STATES } from "@/lib/utils";
+import { maskPhone } from "@/lib/masks";
 
 interface AddressView {
   id: string;
@@ -56,7 +57,7 @@ export function AddressManager({ initialAddresses }: { initialAddresses: Address
 
   const openEdit = (addr: AddressView) => {
     setEditingId(addr.id);
-    setForm({ ...addr, cep: formatCep(addr.cep) });
+    setForm({ ...addr, cep: formatCep(addr.cep), phone: maskPhone(addr.phone) });
     setModalOpen(true);
   };
 
@@ -205,7 +206,9 @@ export function AddressManager({ initialAddresses }: { initialAddresses: Address
           <Input
             label="Telefone (opcional)"
             value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            onChange={(e) => setForm({ ...form, phone: maskPhone(e.target.value) })}
+            placeholder="(11) 99999-9999"
+            inputMode="tel"
           />
           <Input
             label="Rua / Avenida"

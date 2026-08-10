@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/Select";
 import { useToast } from "@/components/providers/ToastProvider";
 import { trackInitiateCheckout } from "@/lib/track-client";
 import { formatCurrency, formatCep, cn, BR_STATES } from "@/lib/utils";
+import { maskPhone } from "@/lib/masks";
 
 interface SavedAddress {
   id: string;
@@ -475,8 +476,9 @@ export function CheckoutClient({
                 <Input
                   label="Telefone (opcional)"
                   value={newAddress.phone}
-                  onChange={(e) => setNewAddress({ ...newAddress, phone: e.target.value })}
+                  onChange={(e) => setNewAddress({ ...newAddress, phone: maskPhone(e.target.value) })}
                   placeholder="(11) 99999-9999"
+                  inputMode="tel"
                 />
                 <label className="flex items-center gap-2 text-sm sm:col-span-2">
                   <input

@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { useToast } from "@/components/providers/ToastProvider";
 import { formatCurrency } from "@/lib/utils";
+import { filterMoneyInput } from "@/lib/masks";
 
 interface AccountRef { id: string; name: string; kind: string }
 interface CategoryRef { id: string; name: string; type: string }
@@ -415,7 +416,7 @@ export function FinancePanel({
               inputMode="decimal"
               placeholder="0,00"
               value={entry.amount}
-              onChange={(e) => setEntry({ ...entry, amount: e.target.value })}
+              onChange={(e) => setEntry({ ...entry, amount: filterMoneyInput(e.target.value) })}
               required
             />
             <Input

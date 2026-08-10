@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/providers/ToastProvider";
+import { filterMoneyInput } from "@/lib/masks";
 
 interface PickerItem {
   productId: string;
@@ -165,7 +166,7 @@ export function StockEntryPanel({
                   />
                   <input
                     value={l.cost}
-                    onChange={(e) => setCost(l.key, e.target.value)}
+                    onChange={(e) => setCost(l.key, filterMoneyInput(e.target.value))}
                     placeholder="custo R$"
                     inputMode="decimal"
                     className="h-9 w-24 rounded-none border border-zinc-300 bg-white px-2 text-right text-sm tabular-nums focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent dark:border-zinc-700 dark:bg-zinc-950"

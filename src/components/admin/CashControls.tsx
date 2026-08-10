@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/providers/ToastProvider";
 import { formatCurrency } from "@/lib/utils";
+import { filterMoneyInput } from "@/lib/masks";
 
 interface Summary {
   openingCents: number;
@@ -75,7 +76,7 @@ export function CashControls({
           <Input
             label="Fundo de troco (R$)"
             value={opening}
-            onChange={(e) => setOpening(e.target.value)}
+            onChange={(e) => setOpening(filterMoneyInput(e.target.value))}
             placeholder="0,00"
             inputMode="decimal"
           />
@@ -129,7 +130,7 @@ export function CashControls({
           <Input
             label={action === "close" ? "Valor contado na gaveta (R$)" : "Valor (R$)"}
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => setAmount(filterMoneyInput(e.target.value))}
             placeholder="0,00"
             inputMode="decimal"
             autoFocus

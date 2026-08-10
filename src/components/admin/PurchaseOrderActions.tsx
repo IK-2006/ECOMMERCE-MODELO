@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/providers/ToastProvider";
 import { formatCurrency } from "@/lib/utils";
+import { filterMoneyInput } from "@/lib/masks";
 
 interface POItem {
   id: string;
@@ -129,7 +130,7 @@ export function PurchaseOrderActions({
                 />
                 <input
                   value={rows[i.id]?.cost ?? ""}
-                  onChange={(e) => setRows((prev) => ({ ...prev, [i.id]: { ...prev[i.id], cost: e.target.value } }))}
+                  onChange={(e) => setRows((prev) => ({ ...prev, [i.id]: { ...prev[i.id], cost: filterMoneyInput(e.target.value) } }))}
                   inputMode="decimal"
                   className="h-9 w-24 rounded-none border border-zinc-300 bg-white px-2 text-right text-sm tabular-nums focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent dark:border-zinc-700 dark:bg-zinc-950"
                   aria-label="Custo unitário"

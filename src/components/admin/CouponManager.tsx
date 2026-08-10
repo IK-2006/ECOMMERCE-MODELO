@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { useToast } from "@/components/providers/ToastProvider";
 import { formatCurrency } from "@/lib/utils";
+import { filterMoneyInput } from "@/lib/masks";
 
 interface CouponView {
   id: string;
@@ -247,7 +248,7 @@ export function CouponManager({ coupons }: { coupons: CouponView[] }) {
               <Input
                 label="Valor (R$) *"
                 value={form.value}
-                onChange={(e) => setForm({ ...form, value: e.target.value })}
+                onChange={(e) => setForm({ ...form, value: filterMoneyInput(e.target.value) })}
                 placeholder="20,00"
                 required
                 inputMode="decimal"
@@ -256,7 +257,7 @@ export function CouponManager({ coupons }: { coupons: CouponView[] }) {
             <Input
               label="Pedido mínimo (R$)"
               value={form.minOrder}
-              onChange={(e) => setForm({ ...form, minOrder: e.target.value })}
+              onChange={(e) => setForm({ ...form, minOrder: filterMoneyInput(e.target.value) })}
               placeholder="Sem mínimo"
               inputMode="decimal"
             />

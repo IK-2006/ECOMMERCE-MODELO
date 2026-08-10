@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/providers/ToastProvider";
+import { maskPhone, maskCpf } from "@/lib/masks";
 
 export function ProfileForms({
   initial,
@@ -14,8 +15,8 @@ export function ProfileForms({
   const { toast } = useToast();
   const router = useRouter();
   const [name, setName] = useState(initial.name);
-  const [phone, setPhone] = useState(initial.phone);
-  const [cpf, setCpf] = useState(initial.cpf);
+  const [phone, setPhone] = useState(maskPhone(initial.phone));
+  const [cpf, setCpf] = useState(maskCpf(initial.cpf));
   const [savingProfile, setSavingProfile] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState("");
@@ -70,8 +71,8 @@ export function ProfileForms({
         <Input label="E-mail" value={initial.email} disabled hint="O e-mail não pode ser alterado" />
         <Input label="Nome completo" value={name} onChange={(e) => setName(e.target.value)} required minLength={2} />
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input label="Telefone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 99999-9999" />
-          <Input label="CPF" value={cpf} onChange={(e) => setCpf(e.target.value)} placeholder="000.000.000-00" />
+          <Input label="Telefone" value={phone} onChange={(e) => setPhone(maskPhone(e.target.value))} placeholder="(11) 99999-9999" inputMode="tel" />
+          <Input label="CPF" value={cpf} onChange={(e) => setCpf(maskCpf(e.target.value))} placeholder="000.000.000-00" inputMode="numeric" />
         </div>
         <Button type="submit" loading={savingProfile}>Salvar alterações</Button>
       </form>

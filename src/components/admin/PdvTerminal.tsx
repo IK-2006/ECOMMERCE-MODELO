@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/providers/ToastProvider";
 import { formatCurrency } from "@/lib/utils";
+import { filterMoneyInput, maskCpf } from "@/lib/masks";
 
 interface PdvVariant {
   id: string;
@@ -448,7 +449,7 @@ export function PdvTerminal({ products, sessionId }: { products: PdvProduct[]; s
               <span className="text-zinc-500">Desconto (R$)</span>
               <input
                 value={discount}
-                onChange={(e) => setDiscount(e.target.value)}
+                onChange={(e) => setDiscount(filterMoneyInput(e.target.value))}
                 placeholder="0,00"
                 inputMode="decimal"
                 className={CASH_INPUT}
@@ -505,7 +506,7 @@ export function PdvTerminal({ products, sessionId }: { products: PdvProduct[]; s
                   <span className="text-zinc-500">Valor recebido</span>
                   <input
                     value={received}
-                    onChange={(e) => setReceived(e.target.value)}
+                    onChange={(e) => setReceived(filterMoneyInput(e.target.value))}
                     placeholder="0,00"
                     inputMode="decimal"
                     className={CASH_INPUT}
@@ -529,7 +530,7 @@ export function PdvTerminal({ products, sessionId }: { products: PdvProduct[]; s
               <span className="text-zinc-500">CPF na nota</span>
               <input
                 value={cpf}
-                onChange={(e) => setCpf(e.target.value)}
+                onChange={(e) => setCpf(maskCpf(e.target.value))}
                 placeholder="opcional"
                 inputMode="numeric"
                 className="h-9 w-40 rounded-none border border-zinc-300 bg-white px-2.5 text-right text-sm tabular-nums focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent dark:border-zinc-700 dark:bg-zinc-950"
