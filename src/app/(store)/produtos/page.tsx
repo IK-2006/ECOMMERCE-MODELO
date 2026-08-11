@@ -70,10 +70,11 @@ export default async function CatalogPage({
   searchParams: Promise<CatalogSearchParams>;
 }) {
   const params = await searchParams;
-  const q = one(params.q);
-  const categoria = one(params.categoria);
-  const sizes = many(params.tamanho);
-  const cores = many(params.cor);
+  // limites defensivos: evitam busca/consulta abusivas (LIKE longo, IN gigante)
+  const q = one(params.q)?.slice(0, 100);
+  const categoria = one(params.categoria)?.slice(0, 120);
+  const sizes = many(params.tamanho).slice(0, 24);
+  const cores = many(params.cor).slice(0, 24);
   const minStr = one(params.min);
   const maxStr = one(params.max);
   const avalStr = one(params.avaliacao);

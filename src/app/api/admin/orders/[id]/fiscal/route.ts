@@ -1,15 +1,20 @@
 import { NextResponse } from "next/server";
-import { handler, ApiError } from "@/lib/api-helpers";
+import { handler, ApiError, tooMany } from "@/lib/api-helpers";
 import { requirePermission } from "@/lib/session";
 import { fiscalEmitSchema } from "@/lib/validations";
 import { emitFiscalInvoice, refreshFiscalInvoice, invoicesForOrder } from "@/services/fiscal";
 import { prisma } from "@/lib/prisma";
 import { audit } from "@/lib/audit";
-import { getClientIp } from "@/lib/rate-limit";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 /** POST /api/admin/orders/[id]/fiscal — emite (ou reenvia) uma nota fiscal do pedido. */
 export const POST = handler(async (req, ctx: { params: Promise<{ id: string }> }) => {
   const admin = await requirePermission("fiscal.manage");
+
+  // trava emissão em rajada (evita chamadas repetidas ao provedor)
+  const limit = rateLimit(`fiscal:${admin.id}`, 30, 5 * 60 * 1000);
+  if (!limit.ok) return tooMany(limit.retryAfterSeconds);
+
   const { id } = await ctx.params;
   const { type } = fiscalEmitSchema.parse(await req.json());
 

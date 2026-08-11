@@ -3,6 +3,20 @@ export function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
+/**
+ * Sanitiza um callbackUrl para evitar OPEN REDIRECT (CWE-601): só aceita
+ * caminho INTERNO (mesma origem). Rejeita URLs absolutas, protocolo-relativas
+ * ("//host"), e o truque de barra invertida ("/\\host"). Fora do padrão → "/".
+ */
+export function safeCallbackUrl(raw: string | null | undefined, fallback = "/"): string {
+  if (!raw || typeof raw !== "string") return fallback;
+  const v = raw.trim();
+  if (!v.startsWith("/")) return fallback; // precisa ser caminho relativo
+  if (v.startsWith("//") || v.startsWith("/\\")) return fallback; // protocolo-relativo / bypass
+  if (/[\x00-\x1f]/.test(v)) return fallback; // caracteres de controle (CRLF etc.)
+  return v;
+}
+
 /** Formata centavos como moeda brasileira: 129900 -> "R$ 1.299,00" */
 export function formatCurrency(cents: number): string {
   return (cents / 100).toLocaleString("pt-BR", {

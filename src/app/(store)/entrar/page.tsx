@@ -6,11 +6,12 @@ import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { safeCallbackUrl } from "@/lib/utils";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/";
+  const callbackUrl = safeCallbackUrl(searchParams.get("callbackUrl"));
   const adminExpired = searchParams.get("expirado") === "admin";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
